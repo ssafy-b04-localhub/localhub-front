@@ -11,12 +11,15 @@
             만나보세요.
           </p>
           <div class="hero-actions">
-            <button class="btn btn-primary" @click="browsePlaces">
-              부산 장소 둘러보기
+            <button class="btn cta primary" @click="browsePlaces">
+              <span class="cta-icon" aria-hidden="true">📍</span>
+              <span class="cta-text">부산 장소 둘러보기</span>
             </button>
-            <router-link to="/posts" class="btn btn-ghost"
-              >커뮤니티 보기</router-link
-            >
+
+            <router-link to="/posts" class="btn cta secondary">
+              <span class="cta-icon" aria-hidden="true">💬</span>
+              <span class="cta-text">커뮤니티 보기</span>
+            </router-link>
           </div>
         </div>
 
@@ -25,17 +28,12 @@
         </div>
       </section>
 
-      <section aria-labelledby="cat-heading" style="margin-top: 14px">
-        <div
-          style="
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-            margin-bottom: 10px;
-          ">
-          <h2 id="cat-heading" class="h-section">카테고리</h2>
-          <div class="caption">스와이프하여 더 많은 카테고리를 확인하세요</div>
+      <section class="section" aria-labelledby="cat-heading">
+        <div class="section-header">
+          <h2 id="cat-heading" class="section-title">카테고리</h2>
+          <div class="section-meta caption">
+            스와이프하여 더 많은 카테고리를 확인하세요
+          </div>
         </div>
 
         <div
@@ -58,28 +56,22 @@
         </div>
       </section>
 
-      <section style="margin-top: 22px">
-        <div class="posts-card card">
-          <div class="posts-header">
-            <div style="display: flex; gap: 12px; align-items: center">
-              <div class="h-section">최근 게시글</div>
-              <div class="caption">부산의 이야기를 함께 나눠보세요</div>
-            </div>
-            <router-link
-              to="/posts"
-              class="caption"
-              style="color: var(--primary)"
-              >전체 보기 →</router-link
-            >
-          </div>
+      <section class="section" aria-labelledby="recent-heading">
+        <div class="section-header">
+          <h2 id="recent-heading" class="section-title">최근 게시글</h2>
+          <router-link to="/posts" class="section-link"
+            >전체 보기 →</router-link
+          >
+        </div>
 
+        <div class="posts-card card">
           <div class="posts-list">
             <div v-if="loadingPosts" class="state" style="padding: 18px">
               로딩 중...
             </div>
             <div
               v-else-if="posts.length === 0"
-              class="state"
+              class="state empty"
               style="
                 padding: 18px;
                 display: flex;
@@ -146,7 +138,9 @@ export default {
       loadingPosts.value = true;
       try {
         const ps = await listPosts();
-        posts.value = ps.sort((a, b) => Number(b.id) - Number(a.id));
+        posts.value = Array.isArray(ps)
+          ? ps.sort((a, b) => Number(b.id) - Number(a.id))
+          : [];
       } catch {
         posts.value = [];
       } finally {
@@ -203,16 +197,137 @@ export default {
 </script>
 
 <style scoped>
-/* scoped styles are intentionally minimal because main structure is in global CSS */
+/* hero CTA: keep typography and sizing identical for primary and secondary */
 .hero {
+  margin: 28px auto;
+  padding: 36px;
+  border-radius: 14px;
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 28px;
+  align-items: center;
+  background: linear-gradient(180deg, #f5fbff 0%, #ffffff 60%);
+  box-shadow: var(--shadow-soft);
 }
+.hero-left {
+  max-width: 640px;
+}
+.kicker {
+  display: inline-block;
+  color: var(--primary);
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.h-hero {
+  margin: 0 0 12px;
+}
+.hero-leadin {
+  margin: 0 0 18px;
+  color: var(--muted);
+  font-size: 15px;
+}
+
+/* CTA both use .cta with equal size/typography */
+.cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 48px;
+  padding: 0 16px;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1;
+  text-decoration: none;
+}
+.cta .cta-icon {
+  font-size: 18px;
+  display: inline-block;
+}
+.cta .cta-text {
+  display: inline-block;
+}
+
+.cta.primary {
+  background: linear-gradient(90deg, var(--primary), var(--primary-hover));
+  color: #fff;
+  border: none;
+}
+.cta.secondary {
+  background: transparent;
+  color: var(--navy);
+  border: 1px solid var(--border);
+}
+
+/* section header common */
+.section {
+  margin-top: 20px;
+}
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.section-title {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0;
+  color: var(--navy);
+}
+.section-link {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+/* category scroll and posts list rely on global styles */
 .cat-scroll {
-  padding-bottom: 8px;
+  display: flex;
+  gap: 14px;
+  padding: 12px 4px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x mandatory;
+  align-items: stretch;
 }
+.cat-card {
+  scroll-snap-align: start;
+  flex: 0 0 200px;
+  min-width: 190px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.cat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-weak);
+}
+
+/* posts card spacing already present; ensure consistent section heading usage */
 .posts-card {
+  margin-top: 6px;
+  padding: 0;
   overflow: hidden;
 }
-.post-row {
-  transition: background-color 0.12s ease;
+
+/* responsive */
+@media (max-width: 1024px) {
+  .hero {
+    grid-template-columns: 1fr 240px;
+  }
+}
+@media (max-width: 768px) {
+  .hero {
+    grid-template-columns: 1fr;
+    padding: 20px;
+    gap: 14px;
+  }
+  .h-hero {
+    font-size: 28px;
+  }
 }
 </style>

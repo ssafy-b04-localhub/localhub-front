@@ -22,7 +22,7 @@
 
         <footer class="post-footer">
           <div class="post-actions">
-            <button class="btn btn-ghost" @click="goEdit" type="button">
+            <button class="btn btn-ghost" @click="onEditClick" type="button">
               수정
             </button>
             <button
@@ -36,8 +36,13 @@
       </article>
 
       <PasswordModal
+        :visible="showPwdModal"
+        @close="onPwdModalClose"
+        @confirm="onPwdConfirmForEdit" />
+
+      <PasswordModal
         :visible="showDeleteModal"
-        @close="showDeleteModal = false"
+        @close="() => (showDeleteModal = false)"
         @confirm="onDeleteConfirm" />
     </main>
   </div>
@@ -48,7 +53,7 @@ import { ref, onMounted, computed } from "vue";
 import AppHeader from "../components/AppHeader.vue";
 import PasswordModal from "../components/PasswordModal.vue";
 import BackButton from "../components/BackButton.vue";
-import { getPost, deletePost } from "../api/posts.js";
+import { getPost, deletePost, verifyPostPassword } from "../api/posts.js";
 import { useRoute, useRouter } from "vue-router";
 import formatDateToKorean from "../utils/formatDate.js";
 
@@ -63,6 +68,7 @@ export default {
     const loading = ref(false);
     const error = ref("");
     const showDeleteModal = ref(false);
+    const showPwdModal = ref(false);
 
     async function load() {
       loading.value = true;
@@ -79,24 +85,6 @@ export default {
     }
 
     onMounted(load);
-
-    function goEdit() {
-      router.push({ name: "PostEdit", params: { id } });
-    }
-
-    async function onDeleteConfirm(pwd) {
-      try {
-        await deletePost(id, pwd);
-        router.push({ name: "PostsList" });
-      } catch (err) {
-        const msg =
-          err?.response?.data?.detail ||
-          "삭제에 실패했습니다. 비밀번호를 확인하세요.";
-        alert(msg);
-      } finally {
-        showDeleteModal.value = false;
-      }
-    }
 
     function formatDate(s) {
       return formatDateToKorean(s) || "";
@@ -117,13 +105,69 @@ export default {
         .join("");
     });
 
+    // --- Edit flow: open password modal, verify via backend, then navigate ---
+    function onEditClick() {
+      // open password modal for edit verification
+      showPwdModal.value = true;
+    }
+
+    function onPwdModalClose() {
+      showPwdModal.value = false;
+    }
+
+    // handler for confirm emitted by PasswordModal for EDIT action
+    // PasswordModal awaits this promise and will display any thrown error message
+    async function onPwdConfirmForEdit(pwd) {
+      // Do not implement any client-side comparison or insecure fallback.
+      // Attempt to call backend verification endpoint (verifyPostPassword).
+      // If backend does not implement this endpoint, this call will fail
+      // and the error will be shown inside the modal (parent throws).
+      try {
+        const res = await verifyPostPassword(id, pwd);
+        // Expected successful response: { verified: true }
+        if (res && res.verified) {
+          // close modal and navigate to edit
+          showPwdModal.value = false;
+          router.push({ name: "PostEdit", params: { id } });
+          return;
+        }
+        // if backend responds but not verified, throw with message
+        throw new Error(res?.detail || "비밀번호가 일치하지 않습니다.");
+      } catch (err) {
+        // Normalize and rethrow so PasswordModal can show message
+        const msg =
+          err?.response?.data?.detail ||
+          err?.message ||
+          "비밀번호 검증에 실패했습니다.";
+        throw new Error(msg);
+      }
+    }
+
+    // Delete flow (existing): reuse modal for delete; parent handles deletion
+    async function onDeleteConfirm(pwd) {
+      try {
+        await deletePost(id, pwd);
+        router.push({ name: "PostsList" });
+      } catch (err) {
+        const msg =
+          err?.response?.data?.detail ||
+          "삭제에 실패했습니다. 비밀번호를 확인하세요.";
+        throw new Error(msg);
+      } finally {
+        showDeleteModal.value = false;
+      }
+    }
+
     return {
       post,
       loading,
       error,
       showDeleteModal,
-      goEdit,
+      showPwdModal,
+      onEditClick,
       onDeleteConfirm,
+      onPwdConfirmForEdit,
+      onPwdModalClose,
       formatDate,
       formattedContent,
     };

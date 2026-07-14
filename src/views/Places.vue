@@ -1,64 +1,45 @@
 <template>
   <div>
     <AppHeader />
-    <main
-      class="container page"
-      style="padding-top: 18px; padding-bottom: 32px">
+    <main class="container page" aria-labelledby="places-heading">
       <BackButton :fallback="'/'" />
 
-      <section style="margin-top: 8px; margin-bottom: 18px">
-        <h1 class="h-page">부산의 장소를 찾아보세요</h1>
-        <p class="caption" style="margin-top: 6px">
+      <section class="page-heading">
+        <h1 id="places-heading" class="h-page">부산의 장소를 찾아보세요</h1>
+        <p class="caption">
           관광지, 문화시설, 축제 등 원하는 부산 정보를 검색해 보세요.
         </p>
       </section>
 
-      <section
-        class="card"
-        style="
-          display: flex;
-          gap: 12px;
-          align-items: center;
-          margin-bottom: 16px;
-        ">
-        <select
-          v-model="selectedType"
-          @change="onFilterChange"
-          aria-label="카테고리 선택">
-          <option value="">전체</option>
-          <option
-            v-for="ct in contentTypes"
-            :key="ct.id"
-            :value="String(ct.id)">
-            {{ ct.name }}
-          </option>
-        </select>
-
-        <input
-          v-model="keyword"
-          placeholder="검색어 입력 (예: 해운대, 박물관)"
-          @keyup.enter="search"
-          aria-label="검색어" />
-
-        <button class="btn btn-primary" @click="search" type="button">
-          검색
-        </button>
-      </section>
-
-      <section style="margin-bottom: 14px">
-        <div style="display: flex; gap: 8px; flex-wrap: wrap">
+      <!-- category chips moved above search (duplicate select removed) -->
+      <section class="filters">
+        <div class="chips" role="tablist">
           <button
             v-for="(ct, idx) in chipList"
             :key="idx"
-            :class="[
-              'btn-sm',
-              selectedChipValue(ct) ? 'btn-primary' : 'btn-ghost',
-            ]"
+            :class="['chip', isSelectedChip(ct) ? 'chip-active' : '']"
             @click="applyChip(ct)"
-            style="border-radius: 999px">
+            type="button"
+            role="tab"
+            :aria-selected="isSelectedChip(ct) ? 'true' : 'false'">
             {{ ct.label }}
           </button>
         </div>
+      </section>
+
+      <section class="search-panel">
+        <input
+          v-model="keyword"
+          class="search-input"
+          placeholder="검색어 입력 (예: 해운대, 박물관)"
+          @keyup.enter="search"
+          aria-label="검색어" />
+        <button
+          class="search-btn btn btn-primary"
+          @click="search"
+          type="button">
+          검색
+        </button>
       </section>
 
       <section>
@@ -81,23 +62,9 @@
                 class="place-thumb"
                 :src="p.firstimage2 || p.firstimage"
                 :alt="p.title" />
-              <div
-                v-else
-                class="place-thumb"
-                style="
-                  display: flex;
-                  align-items: center;
-                  justify-content: center;
-                ">
-                <div
-                  style="
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    gap: 6px;
-                    color: var(--muted);
-                  ">
-                  <div style="font-size: 28px">
+              <div v-else class="place-thumb placeholder">
+                <div class="placeholder-inner">
+                  <div class="placeholder-emoji">
                     {{ emojiFor(p.contentType) }}
                   </div>
                   <div class="caption">이미지 없음</div>
@@ -105,26 +72,12 @@
               </div>
 
               <div class="place-body">
-                <div
-                  style="
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-                    gap: 12px;
-                  ">
-                  <div style="display: flex; flex-direction: column">
+                <div class="place-row">
+                  <div class="place-info">
                     <div class="card-title">{{ p.title }}</div>
-                    <div
-                      class="caption"
-                      style="
-                        margin-top: 6px;
-                        max-height: 40px;
-                        overflow: hidden;
-                      ">
-                      {{ p.addr1 || "" }}
-                    </div>
+                    <div class="caption addr">{{ p.addr1 || "" }}</div>
                   </div>
-                  <div style="text-align: right">
+                  <div class="place-badge">
                     <div class="badge">{{ p.contentType || "" }}</div>
                   </div>
                 </div>
@@ -187,6 +140,7 @@ export default {
         ];
       } catch {
         contentTypes.value = [];
+        chipList.value = [{ label: "전체", value: "" }];
       }
     }
 
@@ -212,16 +166,12 @@ export default {
       }
     }
 
-    function onFilterChange() {
-      search();
-    }
-
     function applyChip(ct) {
       selectedType.value = ct.value || "";
       search();
     }
 
-    function selectedChipValue(ct) {
+    function isSelectedChip(ct) {
       return String(ct.value) === String(selectedType.value);
     }
 
@@ -246,9 +196,10 @@ export default {
       selectedType,
       keyword,
       chipList,
-      onFilterChange,
       applyChip,
-      selectedChipValue,
+      isSelectedChip,
+      onFilterChange: applyChip,
+      search,
       openPlace,
       emojiFor,
     };
@@ -257,16 +208,164 @@ export default {
 </script>
 
 <style scoped>
-.card {
-  display: flex;
-  align-items: center;
+.container {
+  max-width: var(--content-width);
+  margin: 28px auto;
+  padding: 0 20px;
 }
-.places-grid {
+.page-heading {
   margin-top: 8px;
+  margin-bottom: 12px;
+}
+.h-page {
+  margin: 0;
+}
+.caption {
+  color: var(--muted);
+  margin: 0;
+}
+
+/* chips */
+.filters {
+  margin: 8px 0 14px;
+}
+.chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.chip {
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  font-weight: 500;
+}
+.chip-active {
+  background: linear-gradient(90deg, var(--primary), var(--primary-hover));
+  color: white;
+  border-color: transparent;
+}
+
+/* search panel: input + button aligned and same height */
+.search-panel {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 18px;
+}
+.search-input {
+  flex: 1 1 auto;
+  height: 48px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  font-size: 15px;
+  background: var(--surface);
+}
+.search-btn {
+  height: 48px;
+  padding: 0 18px;
+  border-radius: 12px;
+  align-self: stretch;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+}
+
+/* grid */
+.places-grid {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: repeat(3, 1fr);
 }
 .place-card-grid {
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  transition:
+    transform 0.14s ease,
+    box-shadow 0.14s ease;
   cursor: pointer;
+}
+.place-card-grid:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-weak);
+}
+
+.place-thumb {
+  width: 100%;
+  aspect-ratio: 4/3;
+  object-fit: cover;
+  display: block;
+  background: linear-gradient(180deg, #f6fbff, #ffffff);
+}
+.placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.placeholder-inner {
   display: flex;
   flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+}
+.placeholder-emoji {
+  font-size: 28px;
+}
+
+.place-body {
+  padding: 12px;
+}
+.place-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.place-info {
+  max-width: 70%;
+}
+.addr {
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.place-badge {
+  text-align: right;
+}
+
+/* responsive */
+@media (max-width: 1024px) {
+  .places-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 768px) {
+  .container {
+    padding: 0 16px;
+  }
+  .places-grid {
+    grid-template-columns: 1fr;
+  }
+  .search-panel {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .search-btn {
+    width: 100%;
+    height: 48px;
+  }
+  .chip {
+    flex: 0 0 auto;
+  }
 }
 </style>

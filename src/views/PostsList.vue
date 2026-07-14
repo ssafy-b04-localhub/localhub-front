@@ -24,7 +24,7 @@
               placeholder="게시글 검색"
               @input="onSearch"
               aria-label="게시글 검색" />
-            <button class="btn btn-primary" @click="goNew" type="button">
+            <button class="btn create-btn" @click="goNew" type="button">
               + 글쓰기
             </button>
           </div>
@@ -128,7 +128,6 @@ export default {
           : [];
       } catch {
         error.value = "게시글을 불러오는 데 실패했습니다.";
-        posts.value = [];
       } finally {
         loading.value = false;
       }
@@ -176,7 +175,6 @@ export default {
     });
 
     onMounted(load);
-
     return {
       posts,
       loading,
@@ -216,21 +214,36 @@ export default {
 .page-desc {
   margin: 0;
   color: var(--muted);
+  margin-top: 8px;
 }
 .posts-actions {
   display: flex;
   gap: 10px;
   align-items: center;
 }
+
+/* unified heights for search input and create button */
 .search-input {
   min-width: 260px;
+  height: 44px;
   padding: 10px 12px;
   border-radius: 10px;
   border: 1px solid var(--border);
   background: var(--surface);
+  font-size: 15px;
+  box-sizing: border-box;
 }
-.post-count {
-  color: var(--muted);
+.create-btn {
+  height: 44px;
+  padding: 0 14px;
+  border-radius: 10px;
+  background: linear-gradient(90deg, var(--primary), var(--primary-hover));
+  color: #fff;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
 }
 
 /* card list */
@@ -332,8 +345,15 @@ export default {
   }
   .posts-actions {
     width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
   }
   .search-input {
+    width: 100%;
+    min-width: 0;
+  }
+  .create-btn {
     width: 100%;
   }
   .post-row {
