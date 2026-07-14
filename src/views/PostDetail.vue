@@ -6,16 +6,35 @@
 
       <div v-if="loading" class="state">로딩 중...</div>
       <div v-else-if="error" class="state error">{{ error }}</div>
-      <div v-else-if="post" class="post-card">
-        <h1>{{ post.title }}</h1>
-        <div class="meta">{{ formatDate(post.created_at) }}</div>
-        <div class="content" v-html="formattedContent"></div>
 
-        <div class="actions">
-          <button @click="goEdit">수정</button>
-          <button class="danger" @click="showDeleteModal = true">삭제</button>
-        </div>
-      </div>
+      <article
+        v-else-if="post"
+        class="post-card card post-detail-card"
+        role="article">
+        <header class="post-header">
+          <h1 class="post-title">{{ post.title }}</h1>
+          <div class="post-meta caption">{{ formatDate(post.created_at) }}</div>
+        </header>
+
+        <hr class="divider" />
+
+        <section class="post-content" v-html="formattedContent" />
+
+        <footer class="post-footer">
+          <div class="post-actions">
+            <button class="btn btn-ghost" @click="goEdit" type="button">
+              수정
+            </button>
+            <button
+              class="btn btn-outline danger"
+              @click="showDeleteModal = true"
+              type="button">
+              삭제
+            </button>
+          </div>
+        </footer>
+      </article>
+
       <PasswordModal
         :visible="showDeleteModal"
         @close="showDeleteModal = false"
@@ -47,8 +66,10 @@ export default {
 
     async function load() {
       loading.value = true;
+      error.value = "";
       try {
-        post.value = await getPost(id);
+        const res = await getPost(id);
+        post.value = res || null;
         if (!post.value) error.value = "게시글을 찾을 수 없습니다.";
       } catch {
         error.value = "게시글을 불러오지 못했습니다.";
@@ -83,9 +104,16 @@ export default {
 
     const formattedContent = computed(() => {
       if (!post.value) return "";
-      return (post.value.content || "")
-        .split("\n")
-        .map((p) => `<p>${p}</p>`)
+      const raw = post.value.content || "";
+      const safe = String(raw)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+      return safe
+        .split(/\r?\n/)
+        .map((p) => `<p style="margin:10px 0; line-height:1.8;">${p}</p>`)
         .join("");
     });
 
@@ -105,43 +133,69 @@ export default {
 
 <style scoped>
 .container {
-  max-width: 1126px;
-  margin: 28px auto;
-  padding: 0 20px;
+  max-width: var(--content-width);
+  padding-bottom: 40px;
 }
-.post-card {
-  background: white;
-  padding: 18px;
-  border-radius: 12px;
-  box-shadow: var(--shadow);
-  text-align: left;
+.post-detail-card {
+  max-width: 820px;
+  margin: 20px auto;
+  padding: 22px;
 }
-.meta {
-  color: var(--text);
-  margin-bottom: 12px;
-}
-.content p {
-  line-height: 1.7;
-  margin: 8px 0;
-  color: var(--text);
-}
-.actions {
+.post-header {
   display: flex;
-  gap: 8px;
+  flex-direction: column;
+  gap: 6px;
+}
+.post-title {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--navy);
+}
+.post-meta {
+  color: var(--muted);
+}
+.divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 12px 0;
+}
+.post-content {
+  color: var(--text);
+  font-size: 16px;
+  line-height: 1.8;
+}
+.post-footer {
+  display: flex;
+  justify-content: flex-end;
   margin-top: 18px;
 }
-button {
-  padding: 8px 12px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: white;
-  cursor: pointer;
+.post-actions {
+  display: flex;
+  gap: 8px;
 }
-button.danger {
-  border-color: #e06a6a;
-  color: #e06a6a;
+.btn {
+  min-width: 88px;
 }
-.state.error {
-  color: #d9534f;
+
+/* danger outline */
+.btn-outline.danger {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+/* responsive */
+@media (max-width: 768px) {
+  .post-detail-card {
+    padding: 16px;
+    margin: 12px 0;
+  }
+  .post-footer {
+    justify-content: stretch;
+  }
+  .post-actions {
+    justify-content: space-between;
+    width: 100%;
+  }
 }
 </style>

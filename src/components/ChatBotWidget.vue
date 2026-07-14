@@ -1,40 +1,51 @@
 <template>
   <div>
-    <div class="chat-fab" @click="toggle">
-      <svg width="20" height="20" viewBox="0 0 24 24">
+    <button
+      class="chat-fab"
+      @click="toggle"
+      :aria-expanded="open.toString()"
+      aria-label="챗봇 열기">
+      <svg class="chat-fab-icon" viewBox="0 0 24 24" aria-hidden="true">
         <path
-          fill="#fff"
+          fill="currentColor"
           d="M12 3C7 3 3 6.58 3 11c0 2.2 1 4.17 2.7 5.67L4 21l4.33-1.7C10 20.22 11 20.5 12 20.5c5 0 9-3.58 9-8.5S17 3 12 3z" />
       </svg>
-    </div>
+    </button>
 
-    <div v-if="open" :class="['chat-panel', isMobile ? 'mobile' : 'desktop']">
-      <div class="chat-header">
-        <div class="title">LocalHub 챗봇</div>
-        <button class="close" @click="toggle">✕</button>
-      </div>
+    <div
+      v-if="open"
+      class="chat-panel"
+      :class="{ mobile: isMobile }"
+      role="dialog"
+      aria-label="LocalHub 챗봇">
+      <header class="chat-header">
+        <div class="chat-title">LocalHub 챗봇</div>
+        <button class="chat-close" @click="toggle" aria-label="닫기">✕</button>
+      </header>
 
-      <div class="chat-body" ref="bodyEl">
+      <div class="chat-body" ref="bodyEl" role="log" aria-live="polite">
         <div v-if="messages.length === 0" class="chat-empty">
           궁금한 지역 정보를 물어보세요.
         </div>
+
         <div v-for="m in messages" :key="m.id" :class="['chat-msg', m.role]">
-          <div class="text">{{ m.text }}</div>
+          <div class="bubble">
+            <div class="text">{{ m.text }}</div>
+          </div>
         </div>
       </div>
 
-      <div class="chat-input">
+      <form class="chat-input" @submit.prevent="send">
         <textarea
           v-model="input"
           @keydown.enter.prevent="onEnter"
           @keydown.shift.enter.stop
-          :placeholder="
-            sending ? '전송 중...' : '메시지를 입력하세요'
-          "></textarea>
-        <button class="send" @click="send" :disabled="sending || !input.trim()">
+          placeholder="메시지를 입력하세요"
+          aria-label="메시지 입력" />
+        <button class="send" type="submit" :disabled="sending || !input.trim()">
           전송
         </button>
-      </div>
+      </form>
     </div>
   </div>
 </template>
@@ -58,11 +69,12 @@ export default {
 
     function toggle() {
       open.value = !open.value;
+      if (open.value) nextTick(scrollBottom);
     }
 
     function pushMessage(role, text) {
       messages.push({ id: idSeq++, role, text, time: Date.now() });
-      nextTick(() => scrollBottom());
+      nextTick(scrollBottom);
     }
 
     function scrollBottom() {
@@ -78,24 +90,15 @@ export default {
       input.value = "";
       sending.value = true;
       try {
-        // call backend chat API
         const res = await postChat({ message: text });
-        // res format unknown; attempt to read sensible field(s)
-        // Prefer known keys, fallback to stringification
         let reply = "";
-        if (!res) {
-          throw new Error("no-response");
-        } else if (typeof res === "string") {
-          reply = res;
-        } else if (res.reply) {
-          reply = res.reply;
-        } else if (res.message) {
-          reply = res.message;
-        } else if (res.choices && res.choices[0] && res.choices[0].text) {
+        if (!res) throw new Error("no-response");
+        if (typeof res === "string") reply = res;
+        else if (res.reply) reply = res.reply;
+        else if (res.message) reply = res.message;
+        else if (res.choices && res.choices[0] && res.choices[0].text)
           reply = res.choices[0].text;
-        } else {
-          reply = JSON.stringify(res);
-        }
+        else reply = JSON.stringify(res);
         pushMessage("bot", reply);
       } catch (err) {
         pushMessage("bot", "현재 챗봇 서비스를 연결할 수 없습니다.");
@@ -106,7 +109,6 @@ export default {
 
     function onEnter(e) {
       if (e.shiftKey) {
-        // newline
         const el = e.target;
         const pos = el.selectionStart || 0;
         input.value = input.value.slice(0, pos) + "\n" + input.value.slice(pos);
@@ -120,10 +122,8 @@ export default {
       }
     }
 
-    // keep scroll updated
     watch(messages, () => nextTick(scrollBottom));
 
-    // close panel on small-screen back button navigation (optional)
     onMounted(() => {});
 
     return {
@@ -146,33 +146,53 @@ export default {
   position: fixed;
   right: 20px;
   bottom: 24px;
-  width: 56px;
-  height: 56px;
-  background: #0b63d6;
+  width: 54px;
+  height: 54px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: var(--shadow);
   z-index: 70;
+  border: none;
+  color: white;
+  background: linear-gradient(135deg, var(--primary), var(--primary-hover));
+  box-shadow: 0 8px 24px rgba(37, 99, 235, 0.14);
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease;
+}
+.chat-fab:hover {
+  transform: scale(1.04);
+}
+.chat-fab:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, 0.16);
+  outline-offset: 2px;
+}
+.chat-fab-icon {
+  width: 22px;
+  height: 22px;
+  color: #fff;
 }
 
+/* panel */
 .chat-panel {
   position: fixed;
   right: 20px;
   bottom: 90px;
-  width: 360px;
+  width: 380px;
   height: 520px;
-  background: white;
+  background: var(--surface);
   border-radius: 12px;
-  box-shadow: var(--shadow);
+  box-shadow: 0 14px 40px rgba(23, 32, 51, 0.12);
   display: flex;
   flex-direction: column;
   z-index: 70;
   overflow: hidden;
+  border: 1px solid var(--border);
 }
 
+/* mobile full-screen */
 .chat-panel.mobile {
   left: 0;
   right: 0;
@@ -183,6 +203,7 @@ export default {
   border-radius: 0;
 }
 
+/* header */
 .chat-header {
   padding: 12px 14px;
   border-bottom: 1px solid var(--border);
@@ -190,55 +211,65 @@ export default {
   align-items: center;
   justify-content: space-between;
 }
-.chat-header .title {
+.chat-title {
   font-weight: 700;
-  color: var(--text-h);
+  color: var(--navy);
 }
-.chat-header .close {
+.chat-close {
   background: transparent;
   border: 0;
   cursor: pointer;
   font-size: 18px;
 }
 
+/* body */
 .chat-body {
   flex: 1;
   padding: 12px;
   overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 .chat-empty {
-  color: var(--text);
-  font-size: 14px;
+  color: var(--muted);
   padding: 12px;
 }
 
+/* messages */
 .chat-msg {
-  margin-bottom: 12px;
   display: flex;
-}
-.chat-msg.user {
-  justify-content: flex-end;
 }
 .chat-msg.bot {
   justify-content: flex-start;
 }
-.chat-msg .text {
+.chat-msg.user {
+  justify-content: flex-end;
+}
+.bubble {
   max-width: 78%;
+}
+.bubble .text {
   padding: 10px 12px;
   border-radius: 12px;
-  background: #f4f7fb;
-  color: var(--text);
+  line-height: 1.6;
+}
+.chat-msg.bot .text {
+  background: var(--mint);
+  color: var(--navy);
 }
 .chat-msg.user .text {
-  background: #0b63d6;
-  color: white;
+  background: linear-gradient(90deg, var(--primary), var(--primary-hover));
+  color: #fff;
 }
 
+/* input */
 .chat-input {
   display: flex;
   gap: 8px;
   padding: 10px;
   border-top: 1px solid var(--border);
+  align-items: flex-end;
 }
 .chat-input textarea {
   flex: 1;
@@ -246,19 +277,37 @@ export default {
   max-height: 120px;
   resize: none;
   padding: 8px 10px;
-  border-radius: 8px;
+  border-radius: 10px;
   border: 1px solid var(--border);
+  font-size: 14px;
 }
 .chat-input .send {
-  background: #0b63d6;
+  background: linear-gradient(90deg, var(--primary), var(--primary-hover));
   color: white;
   border: none;
   padding: 10px 14px;
-  border-radius: 8px;
+  border-radius: 10px;
   cursor: pointer;
 }
 .chat-input .send:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+/* responsive */
+@media (max-width: 768px) {
+  .chat-fab {
+    right: 16px;
+    bottom: 16px;
+    width: 52px;
+    height: 52px;
+  }
+  .chat-panel {
+    right: 12px;
+    bottom: 84px;
+    width: 100%;
+    max-width: 680px;
+    height: 86vh;
+  }
 }
 </style>

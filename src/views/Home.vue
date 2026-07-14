@@ -2,51 +2,103 @@
   <div class="page home">
     <AppHeader />
     <main class="container">
-      <section class="hero-banner">
-        <div class="hero-inner">
-          <h1>지역 정보 공유 커뮤니티 LocalHub</h1>
-          <p>부산의 관광지, 맛집, 축제·행사 정보를 한눈에 만나보세요</p>
+      <section class="hero">
+        <div class="hero-left">
+          <div class="kicker">부산 로컬 큐레이션</div>
+          <h1 class="h-hero">부산의 새로운 장소를 발견해 보세요</h1>
+          <p class="hero-leadin">
+            관광지부터 문화시설, 축제, 맛집까지 부산의 다양한 이야기를
+            만나보세요.
+          </p>
+          <div class="hero-actions">
+            <button class="btn btn-primary" @click="browsePlaces">
+              부산 장소 둘러보기
+            </button>
+            <router-link to="/posts" class="btn btn-ghost"
+              >커뮤니티 보기</router-link
+            >
+          </div>
+        </div>
+
+        <div class="hero-right">
+          <div class="wave" aria-hidden="true">🌊</div>
         </div>
       </section>
 
-      <section class="categories">
-        <h2 class="sr-only">카테고리</h2>
+      <section aria-labelledby="cat-heading" style="margin-top: 14px">
+        <div
+          style="
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 10px;
+          ">
+          <h2 id="cat-heading" class="h-section">카테고리</h2>
+          <div class="caption">스와이프하여 더 많은 카테고리를 확인하세요</div>
+        </div>
+
         <div
           class="cat-scroll"
           ref="scrollEl"
           @wheel.prevent="onWheel"
           @touchstart="onTouchStart">
           <div
+            class="cat-card"
             v-for="c in contentTypes"
             :key="c.id"
-            class="cat"
             @click="goToPlaces(c)"
             role="button"
             tabindex="0"
             @keyup.enter="goToPlaces(c)">
             <div class="emoji">{{ emojiFor(c.name) }}</div>
-            <div class="name">{{ c.name }}</div>
-            <div class="desc">부산의 {{ c.name }} 정보를 확인하세요</div>
+            <div class="cat-title">{{ c.name }}</div>
+            <div class="cat-desc">부산의 {{ c.name }} 정보를 확인하세요</div>
           </div>
         </div>
       </section>
 
-      <section class="recent-posts">
-        <h2>최근 게시글</h2>
-        <div class="post-list">
-          <div v-if="loadingPosts">로딩 중...</div>
-          <div v-else-if="posts.length === 0">게시글이 없습니다.</div>
-          <div v-else>
-            <article
-              v-for="p in posts.slice(0, 4)"
-              :key="p.id"
-              class="post-item"
-              @click="goPost(p.id)">
-              <div class="left">
+      <section style="margin-top: 22px">
+        <div class="posts-card card">
+          <div class="posts-header">
+            <div style="display: flex; gap: 12px; align-items: center">
+              <div class="h-section">최근 게시글</div>
+              <div class="caption">부산의 이야기를 함께 나눠보세요</div>
+            </div>
+            <router-link
+              to="/posts"
+              class="caption"
+              style="color: var(--primary)"
+              >전체 보기 →</router-link
+            >
+          </div>
+
+          <div class="posts-list">
+            <div v-if="loadingPosts" class="state" style="padding: 18px">
+              로딩 중...
+            </div>
+            <div
+              v-else-if="posts.length === 0"
+              class="state"
+              style="
+                padding: 18px;
+                display: flex;
+                gap: 12px;
+                align-items: center;
+              ">
+              <div style="font-size: 24px">📝</div>
+              <div>게시글이 없습니다. 새로운 이야기를 시작해 보세요!</div>
+            </div>
+            <div v-else>
+              <article
+                v-for="p in posts.slice(0, 6)"
+                :key="p.id"
+                class="post-row"
+                @click="goPost(p.id)">
                 <div class="title">{{ p.title }}</div>
                 <div class="meta">{{ formatDate(p.created_at) }}</div>
-              </div>
-            </article>
+              </article>
+            </div>
           </div>
         </div>
       </section>
@@ -67,10 +119,10 @@ export default {
   components: { AppHeader },
   setup() {
     const contentTypes = ref([]);
-    const router = useRouter();
     const posts = ref([]);
     const loadingPosts = ref(false);
     const scrollEl = ref(null);
+    const router = useRouter();
 
     const emojiMap = {
       관광지: "🏖️",
@@ -107,8 +159,11 @@ export default {
     }
 
     function goToPlaces(c) {
-      // navigate to /places with content_type as id (backend accepts numeric id or name)
       router.push({ name: "Places", query: { content_type: c.id } });
+    }
+
+    function browsePlaces() {
+      router.push({ name: "Places" });
     }
 
     function goPost(id) {
@@ -119,31 +174,26 @@ export default {
       return formatDateToKorean(s) || "";
     }
 
-    // horizontal wheel handling (vertical wheel -> horizontal scroll)
     function onWheel(e) {
       const el = scrollEl.value;
       if (!el) return;
-      // when content wider than container, translate vertical wheel to horizontal
       if (el.scrollWidth > el.clientWidth) {
         el.scrollLeft += e.deltaY;
       }
     }
-
-    // prevent browser default vertical swiping issues on touch by nothing special (native supports horizontal)
-    function onTouchStart() {
-      // placeholder for potential enhancements
-    }
+    function onTouchStart() {}
 
     onMounted(load);
 
     return {
       contentTypes,
       posts,
-      goToPlaces,
-      goPost,
       loadingPosts,
       emojiFor,
       scrollEl,
+      goToPlaces,
+      goPost,
+      browsePlaces,
       onWheel,
       onTouchStart,
       formatDate,
@@ -153,116 +203,16 @@ export default {
 </script>
 
 <style scoped>
-.container {
-  max-width: 1126px;
-  margin: 24px auto;
-  padding: 0 20px;
+/* scoped styles are intentionally minimal because main structure is in global CSS */
+.hero {
 }
-.hero-banner {
-  background: linear-gradient(180deg, #f4fbff, #ffffff);
-  padding: 36px;
-  border-radius: 12px;
-  box-shadow: var(--shadow);
-  margin-bottom: 24px;
-  text-align: left;
-}
-.hero-inner h1 {
-  color: var(--accent);
-  margin: 0 0 8px;
-}
-
-/* categories scroll area */
 .cat-scroll {
-  display: flex;
-  gap: 14px;
-  padding: 12px 4px;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scroll-snap-type: x mandatory;
-  align-items: stretch;
+  padding-bottom: 8px;
 }
-.cat {
-  flex: 0 0 260px;
-  scroll-snap-align: start;
-  background: white;
-  padding: 16px;
-  border-radius: 12px;
-  box-shadow: var(--shadow);
-  cursor: pointer;
-  text-align: left;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  min-width: 200px;
+.posts-card {
+  overflow: hidden;
 }
-.cat:focus {
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(11, 99, 214, 0.08);
-}
-.emoji {
-  font-size: 32px;
-  width: 48px;
-  height: 48px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #f4f8ff;
-  border-radius: 8px;
-}
-.name {
-  font-weight: 600;
-  color: var(--text-h);
-}
-.desc {
-  color: var(--text);
-  font-size: 13px;
-  margin-top: auto;
-}
-
-/* hide scrollbar in a tasteful way but allow scrolling */
-.cat-scroll::-webkit-scrollbar {
-  height: 10px;
-}
-.cat-scroll::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.08);
-  border-radius: 8px;
-}
-
-/* recent posts */
-.post-list {
-  margin-top: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.post-item {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  padding: 12px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  cursor: pointer;
-  background: white;
-}
-.post-item .title {
-  font-weight: 600;
-  color: var(--text-h);
-}
-.post-item .meta {
-  color: var(--text);
-  font-size: 13px;
-  margin-top: 6px;
-}
-
-/* responsive */
-@media (max-width: 768px) {
-  .cat {
-    flex: 0 0 68%;
-    min-width: 220px;
-  }
-  .hero-inner {
-    padding-bottom: 8px;
-  }
+.post-row {
+  transition: background-color 0.12s ease;
 }
 </style>

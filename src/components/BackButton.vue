@@ -1,7 +1,25 @@
 <template>
   <div class="back-wrapper">
-    <button @click="goBack" class="back-btn" type="button">
-      <span class="arrow">◀</span>
+    <button
+      class="back-ghost"
+      type="button"
+      @click="goBack"
+      aria-label="뒤로가기">
+      <span class="icon" aria-hidden="true">
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg">
+          <path
+            d="M15 18L9 12L15 6"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round" />
+        </svg>
+      </span>
       <span class="label">{{ label }}</span>
     </button>
   </div>
@@ -20,7 +38,6 @@ export default {
     const router = useRouter();
 
     function goBack() {
-      // Try history.back(); if no history, route to fallback
       if (window.history.length > 1) {
         router.back();
         return;
@@ -37,27 +54,39 @@ export default {
 .back-wrapper {
   margin: 12px 0;
 }
-.back-btn {
+.back-ghost {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   padding: 8px 12px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: white;
+  border-radius: 999px;
+  background: transparent;
+  border: none;
+  color: var(--navy);
   cursor: pointer;
-  color: var(--text-h);
-  font-weight: 500;
+  transition:
+    background-color 0.12s ease,
+    transform 0.12s ease;
 }
-.back-btn .arrow {
-  font-size: 14px;
+.back-ghost .icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.06);
+  color: var(--primary);
 }
-.back-btn:hover {
-  background: var(--accent-bg);
-  box-shadow: var(--shadow);
+.back-ghost:hover {
+  background: var(--primary-soft);
+  transform: translateY(-2px);
 }
-.back-btn:focus-visible {
-  outline: 3px solid rgba(11, 99, 214, 0.18);
+.back-ghost:focus-visible {
+  outline: 3px solid rgba(37, 99, 235, 0.16);
   outline-offset: 2px;
+}
+.label {
+  font-weight: 600;
 }
 </style>

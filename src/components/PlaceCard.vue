@@ -1,13 +1,52 @@
 <template>
-  <article class="place-card" @click="go">
-    <div class="thumb" v-if="place.firstimage2">
-      <img :src="place.firstimage2" :alt="place.title" />
+  <article class="place-card-grid" @click="go" role="button">
+    <img
+      v-if="place.firstimage2 || place.firstimage"
+      class="place-thumb"
+      :src="place.firstimage2 || place.firstimage"
+      :alt="place.title" />
+    <div
+      v-else
+      class="place-thumb"
+      style="display: flex; align-items: center; justify-content: center">
+      <div
+        style="
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 6px;
+          color: var(--muted);
+        ">
+        <div style="font-size: 28px">{{ emojiFor(place.contentType) }}</div>
+        <div class="caption">이미지 없음</div>
+      </div>
     </div>
-    <div class="meta">
-      <div class="title">{{ place.title }}</div>
-      <div class="sub">
-        <span class="type">{{ place.contentType }}</span>
-        <span v-if="place.addr1" class="addr"> · {{ place.addr1 }}</span>
+
+    <div class="place-body">
+      <div
+        style="
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        ">
+        <div>
+          <div class="card-title">{{ place.title }}</div>
+          <div
+            class="caption"
+            style="
+              margin-top: 6px;
+              max-width: 60ch;
+              display: block;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              white-space: nowrap;
+            ">
+            {{ place.addr1 || "" }}
+          </div>
+        </div>
+        <div style="text-align: right">
+          <div class="badge">{{ place.contentType || "" }}</div>
+        </div>
       </div>
     </div>
   </article>
@@ -22,59 +61,64 @@ export default {
   },
   setup(props) {
     const router = useRouter();
+    const emojiMap = {
+      관광지: "🏖️",
+      문화시설: "🏛️",
+      축제공연행사: "🎆",
+      여행코스: "🗺️",
+      레포츠: "🏄",
+      숙박: "🏨",
+      쇼핑: "🛍️",
+      음식점: "🍽️",
+    };
     function go() {
       router.push({
         name: "PlaceDetail",
         params: { id: props.place.contentid },
       });
     }
-    return { go };
+    function emojiFor(name) {
+      return emojiMap[name] || "📍";
+    }
+    return { go, emojiFor };
   },
 };
 </script>
 
 <style scoped>
-.place-card {
-  display: flex;
-  gap: 16px;
-  background: #fff;
+.place-card-grid {
   border-radius: 12px;
-  padding: 12px;
-  box-shadow: var(--shadow);
-  cursor: pointer;
-  align-items: center;
-  transition: transform 0.12s;
-}
-.place-card:hover {
-  transform: translateY(-4px);
-}
-.thumb {
-  width: 96px;
-  height: 72px;
-  flex: 0 0 96px;
   overflow: hidden;
-  border-radius: 8px;
-  background: #f4f4f6;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  transition:
+    transform 0.12s ease,
+    box-shadow 0.12s ease;
 }
-.thumb img {
+.place-card-grid:hover {
+  transform: translateY(-6px);
+  box-shadow: var(--shadow-weak);
+}
+.place-thumb {
   width: 100%;
-  height: 100%;
+  aspect-ratio: 4 / 3;
   object-fit: cover;
+  background: linear-gradient(180deg, #f6fbff, #ffffff);
 }
-.meta {
-  text-align: left;
+.place-body {
+  padding: 12px;
 }
-.title {
+.card-title {
   font-weight: 600;
-  color: var(--text-h);
-  margin-bottom: 6px;
+  color: var(--navy);
 }
-.sub {
-  color: var(--text);
-  font-size: 14px;
-}
-.type {
-  color: #0b63d6;
+.badge {
+  display: inline-block;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: var(--primary-soft);
+  color: var(--primary);
   font-weight: 600;
+  font-size: 13px;
 }
 </style>

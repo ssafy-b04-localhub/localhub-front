@@ -1,41 +1,99 @@
 <template>
   <div>
     <AppHeader />
-    <main class="container page">
+    <main class="container page posts-page">
       <BackButton :fallback="'/'" />
 
-      <div class="posts-controls">
-        <input v-model="query" placeholder="게시글 검색" @input="onSearch" />
-        <button @click="goNew">+ 글쓰기</button>
-      </div>
-
-      <div v-if="loading" class="state">로딩 중...</div>
-      <div v-else-if="error" class="state error">{{ error }}</div>
-      <div v-else>
-        <div v-if="pagedItems.length === 0" class="state">
-          게시글이 없습니다.
+      <section class="page-head">
+        <div class="page-head-left">
+          <h1 class="h-page">커뮤니티</h1>
+          <p class="caption page-desc">
+            부산의 장소와 행사에 대한 이야기를 자유롭게 공유해 보세요.
+          </p>
+          <div class="post-count caption">
+            총 <strong>{{ posts.length }}</strong
+            >개의 글
+          </div>
         </div>
-        <div class="post-list">
-          <article v-for="p in pagedItems" :key="p.id" class="post-row">
-            <div class="left" @click="openPost(p.id)">
-              <div class="title">{{ p.title }}</div>
-              <div class="meta">{{ formatDate(p.created_at) }}</div>
+
+        <div class="page-head-right">
+          <div class="posts-actions">
+            <input
+              v-model="query"
+              class="search-input"
+              placeholder="게시글 검색"
+              @input="onSearch"
+              aria-label="게시글 검색" />
+            <button class="btn btn-primary" @click="goNew" type="button">
+              + 글쓰기
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section class="card posts-list-card" aria-live="polite">
+        <div v-if="loading" class="state">로딩 중...</div>
+        <div v-else-if="error" class="state error">{{ error }}</div>
+
+        <div v-else>
+          <div v-if="pagedItems.length === 0" class="empty-state">
+            <div class="empty-emoji">💬</div>
+            <div class="empty-text">
+              아직 게시글이 없습니다. 먼저 이야기를 시작해보세요.
             </div>
-          </article>
-        </div>
+          </div>
 
-        <div class="pagination" v-if="pages > 1">
-          <button :disabled="page === 1" @click="page--">&lt;</button>
-          <button
-            v-for="n in pages"
-            :key="n"
-            :class="{ active: n === page }"
-            @click="page = n">
-            {{ n }}
-          </button>
-          <button :disabled="page === pages" @click="page++">&gt;</button>
+          <div v-else class="posts-body">
+            <article
+              v-for="p in pagedItems"
+              :key="p.id"
+              class="post-row"
+              @click="openPost(p.id)"
+              role="button"
+              tabindex="0"
+              @keyup.enter="openPost(p.id)">
+              <div class="post-row-left">
+                <div class="title">{{ p.title }}</div>
+                <div class="excerpt caption">{{ excerpt(p.content) }}</div>
+              </div>
+
+              <div class="post-row-right">
+                <div class="meta">{{ formatDate(p.created_at) }}</div>
+              </div>
+            </article>
+          </div>
+
+          <div
+            class="pagination"
+            v-if="pages > 1"
+            role="navigation"
+            aria-label="페이지네이션">
+            <button
+              class="page-btn"
+              :disabled="page === 1"
+              @click="page = page - 1">
+              &lt;
+            </button>
+
+            <button
+              v-for="n in pages"
+              :key="n"
+              class="page-btn"
+              :class="{ active: n === page }"
+              @click="page = n"
+              :aria-current="n === page ? 'page' : null">
+              {{ n }}
+            </button>
+
+            <button
+              class="page-btn"
+              :disabled="page === pages"
+              @click="page = page + 1">
+              &gt;
+            </button>
+          </div>
         </div>
-      </div>
+      </section>
     </main>
   </div>
 </template>
@@ -62,11 +120,15 @@ export default {
 
     async function load() {
       loading.value = true;
+      error.value = "";
       try {
         const ps = await listPosts();
-        posts.value = ps.sort((a, b) => Number(b.id) - Number(a.id));
+        posts.value = Array.isArray(ps)
+          ? ps.sort((a, b) => Number(b.id) - Number(a.id))
+          : [];
       } catch {
         error.value = "게시글을 불러오는 데 실패했습니다.";
+        posts.value = [];
       } finally {
         loading.value = false;
       }
@@ -102,6 +164,11 @@ export default {
     function onSearch() {
       page.value = 1;
     }
+    function excerpt(text) {
+      if (!text) return "";
+      const t = String(text).replace(/\s+/g, " ").trim();
+      return t.length > 80 ? t.slice(0, 80) + "…" : t;
+    }
 
     watch(page, (v) => {
       if (v < 1) page.value = 1;
@@ -109,6 +176,7 @@ export default {
     });
 
     onMounted(load);
+
     return {
       posts,
       loading,
@@ -121,6 +189,7 @@ export default {
       goNew,
       formatDate,
       onSearch,
+      excerpt,
     };
   },
 };
@@ -128,74 +197,154 @@ export default {
 
 <style scoped>
 .container {
-  max-width: 1126px;
-  margin: 28px auto;
-  padding: 0 20px;
+  max-width: var(--content-width);
+  margin-top: 20px;
+  padding-bottom: 40px;
 }
-.posts-controls {
+.page-head {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
+  align-items: flex-start;
+  gap: 16px;
   margin-bottom: 12px;
 }
-.posts-controls input {
-  flex: 1;
-  padding: 8px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-}
-.posts-controls button {
-  background: #0b63d6;
-  color: white;
-  border: 0;
-  padding: 8px 12px;
-  border-radius: 8px;
-}
-.post-list {
+.page-head-left {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
-.post-row {
-  background: white;
-  padding: 12px;
-  border-radius: 8px;
-  box-shadow: var(--shadow);
-  cursor: pointer;
-  display: flex;
+.page-desc {
+  margin: 0;
+  color: var(--muted);
 }
-.post-row .left {
-  flex: 1;
-  text-align: left;
+.posts-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.search-input {
+  min-width: 260px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+.post-count {
+  color: var(--muted);
+}
+
+/* card list */
+.posts-list-card {
+  padding: 0;
+  overflow: hidden;
+}
+.posts-body {
+  display: flex;
+  flex-direction: column;
+}
+.post-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  border-bottom: 1px solid rgba(231, 235, 241, 0.9);
+  cursor: pointer;
+  transition:
+    background-color 0.12s ease,
+    transform 0.08s ease;
+}
+.post-row:hover {
+  background: var(--primary-soft);
+}
+.post-row-left {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
 }
 .title {
   font-weight: 600;
-  color: var(--text-h);
+  color: var(--navy);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.excerpt {
+  color: var(--muted);
+  font-size: 13px;
+  max-width: 60ch;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.post-row-right {
+  min-width: 110px;
+  text-align: right;
 }
 .meta {
-  color: var(--text);
+  color: var(--muted);
   font-size: 13px;
-  margin-top: 6px;
 }
+
+/* empty state */
+.empty-state {
+  padding: 40px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: row;
+}
+.empty-emoji {
+  font-size: 26px;
+}
+.empty-text {
+  color: var(--muted);
+}
+
+/* pagination */
 .pagination {
   display: flex;
   gap: 8px;
   justify-content: center;
-  margin-top: 12px;
+  padding: 12px;
 }
-.pagination button {
-  padding: 6px 10px;
-  border-radius: 6px;
+.page-btn {
+  padding: 8px 10px;
+  border-radius: 8px;
   border: 1px solid var(--border);
-  background: white;
+  background: var(--surface);
   cursor: pointer;
 }
-.pagination button.active {
-  background: #0b63d6;
+.page-btn.active {
+  background: var(--primary);
   color: white;
-  border-color: #0b63d6;
+  border-color: var(--primary);
 }
-.state.error {
-  color: #d9534f;
+
+/* responsive */
+@media (max-width: 768px) {
+  .page-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .posts-actions {
+    width: 100%;
+  }
+  .search-input {
+    width: 100%;
+  }
+  .post-row {
+    padding: 12px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .post-row-right {
+    align-self: flex-end;
+    text-align: right;
+  }
 }
 </style>

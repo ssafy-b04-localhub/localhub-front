@@ -4,32 +4,55 @@
     <main class="container page">
       <BackButton :fallback="'/posts'" />
 
-      <div class="form-card">
-        <h2>{{ isEdit ? "게시글 수정" : "게시글 작성" }}</h2>
+      <section class="form-wrap">
+        <article class="card form-card">
+          <header class="form-header">
+            <h1 class="h-page">{{ isEdit ? "게시글 수정" : "게시글 작성" }}</h1>
+            <p class="caption form-desc">
+              부산의 장소와 행사에 대한 이야기를 자유롭게 나눠보세요.
+            </p>
+          </header>
 
-        <label>제목</label>
-        <input v-model="title" placeholder="제목을 입력해주세요" />
+          <div class="form-body">
+            <label class="field-label" for="title">제목</label>
+            <input
+              id="title"
+              v-model="title"
+              placeholder="제목을 입력해주세요" />
 
-        <label>내용</label>
-        <textarea
-          v-model="content"
-          placeholder="내용을 입력해주세요"
-          rows="10"></textarea>
+            <label class="field-label" for="content">내용</label>
+            <textarea
+              id="content"
+              v-model="content"
+              placeholder="내용을 입력해주세요" />
 
-        <label>수정용 비밀번호</label>
-        <input
-          v-model="password"
-          type="password"
-          placeholder="비밀번호를 입력해주세요" />
+            <label class="field-label" for="password">수정용 비밀번호</label>
+            <input
+              id="password"
+              type="password"
+              v-model="password"
+              placeholder="비밀번호를 입력해주세요" />
+            <div v-if="passwordHelp" class="caption help-text">
+              {{ passwordHelp }}
+            </div>
 
-        <div class="actions">
-          <button @click="cancel">취소</button>
-          <button class="primary" @click="submit" :disabled="submitting">
-            {{ submitting ? "전송중..." : isEdit ? "수정" : "등록" }}
-          </button>
-        </div>
-        <p v-if="error" class="error">{{ error }}</p>
-      </div>
+            <div v-if="error" class="error">{{ error }}</div>
+
+            <div class="form-actions">
+              <button class="btn btn-ghost" @click="cancel" type="button">
+                취소
+              </button>
+              <button
+                class="btn btn-primary"
+                @click="submit"
+                :disabled="submitting"
+                type="button">
+                {{ submitting ? "전송중..." : isEdit ? "수정" : "등록" }}
+              </button>
+            </div>
+          </div>
+        </article>
+      </section>
     </main>
   </div>
 </template>
@@ -54,8 +77,12 @@ export default {
     const password = ref("");
     const submitting = ref(false);
     const error = ref("");
+    const passwordHelp = ref(
+      "수정 시 비밀번호를 입력해야 변경/삭제가 가능합니다.",
+    );
 
     async function load() {
+      error.value = "";
       if (!isEdit) return;
       try {
         const p = await getPost(id);
@@ -65,7 +92,6 @@ export default {
         }
         title.value = p.title || "";
         content.value = p.content || "";
-        // Do NOT prefill password for security
       } catch {
         error.value = "게시글을 불러오지 못했습니다.";
       }
@@ -116,6 +142,7 @@ export default {
     }
 
     onMounted(load);
+
     return {
       title,
       content,
@@ -125,6 +152,7 @@ export default {
       isEdit,
       submitting,
       error,
+      passwordHelp,
     };
   },
 };
@@ -132,51 +160,74 @@ export default {
 
 <style scoped>
 .container {
-  max-width: 1126px;
-  margin: 28px auto;
-  padding: 0 20px;
+  max-width: var(--content-width);
+  padding-bottom: 40px;
+}
+.form-wrap {
+  display: flex;
+  justify-content: center;
+  margin-top: 12px;
 }
 .form-card {
-  background: white;
-  padding: 18px;
-  border-radius: 12px;
-  box-shadow: var(--shadow);
-  text-align: left;
+  width: 100%;
+  max-width: 900px;
+  padding: 20px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
-label {
-  font-weight: 600;
+.form-header {
+  margin-bottom: 6px;
+}
+.form-desc {
+  margin: 6px 0 0;
+  color: var(--muted);
+}
+.field-label {
+  display: block;
   margin-top: 8px;
-  color: var(--text-h);
+  font-weight: 600;
+  color: var(--navy);
 }
 input,
 textarea {
   width: 100%;
-  padding: 10px;
-  border-radius: 8px;
+  padding: 12px;
+  border-radius: 10px;
   border: 1px solid var(--border);
+  font-size: 15px;
+  box-sizing: border-box;
 }
-.actions {
+textarea {
+  min-height: 240px;
+  resize: vertical;
+}
+.help-text {
+  margin-top: 6px;
+  color: var(--muted);
+}
+.form-actions {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   justify-content: flex-end;
-  margin-top: 10px;
-}
-button {
-  padding: 8px 12px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: white;
-  cursor: pointer;
-}
-button.primary {
-  background: #0b63d6;
-  color: white;
-  border-color: #0b63d6;
+  margin-top: 12px;
 }
 .error {
-  color: #d9534f;
+  color: var(--danger);
+  margin-top: 6px;
+}
+
+/* responsive */
+@media (max-width: 768px) {
+  .form-card {
+    padding: 16px;
+  }
+  .form-actions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+  .form-actions .btn {
+    width: 100%;
+  }
 }
 </style>
