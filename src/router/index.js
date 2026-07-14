@@ -1,26 +1,41 @@
-import { createRouter, createWebHistory } from 'vue-router'
-import HomeView from '../views/HomeView.vue'
-import PostListView from '../views/PostListView.vue'
-import PostFormView from '../views/PostFormView.vue'
-import PostDetailView from '../views/PostDetailView.vue'
-import PlacesListView from '../views/PlacesListView.vue'
-import PlaceDetailView from '../views/PlaceDetailView.vue'
-import NotFoundView from '../views/NotFoundView.vue'
+import { createRouter, createWebHistory } from "vue-router";
+import Home from "../views/Home.vue";
+import Places from "../views/Places.vue";
+import PlaceDetail from "../views/PlaceDetail.vue";
+import PostsList from "../views/PostsList.vue";
+import PostDetail from "../views/PostDetail.vue";
+import PostForm from "../views/PostForm.vue";
+import NotFound from "../views/NotFound.vue";
 
 const routes = [
-  { path: '/', name: 'home', component: HomeView },
-  { path: '/places', name: 'places-list', component: PlacesListView },
-  { path: '/places/:id', name: 'place-detail', component: PlaceDetailView, props: true },
-  { path: '/posts', name: 'post-list', component: PostListView },
-  { path: '/posts/new', name: 'post-create', component: PostFormView },
-  { path: '/posts/:id', name: 'post-detail', component: PostDetailView, props: true },
-  { path: '/posts/:id/edit', name: 'post-edit', component: PostFormView, props: true },
-  { path: '/:pathMatch(.*)*', name: 'not-found', component: NotFoundView },
-]
+  { path: "/", name: "Home", component: Home },
+  { path: "/places", name: "Places", component: Places },
+  {
+    path: "/places/:id",
+    name: "PlaceDetail",
+    component: PlaceDetail,
+    props: true,
+  },
+  { path: "/posts", name: "PostsList", component: PostsList },
+  { path: "/posts/new", name: "PostNew", component: PostForm },
+  {
+    path: "/posts/:id",
+    name: "PostDetail",
+    component: PostDetail,
+    props: true,
+  },
+  {
+    path: "/posts/:id/edit",
+    name: "PostEdit",
+    component: PostForm,
+    props: true,
+  },
+  { path: "/:pathMatch(.*)*", name: "NotFound", component: NotFound },
+];
 
 const router = createRouter({
   history: createWebHistory(),
   routes,
-})
+});
 
-export default router
+export default router;
