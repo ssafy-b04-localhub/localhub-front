@@ -68,15 +68,19 @@
               role="button"
               tabindex="0"
               @keyup.enter="openPost(p.id)">
-              <div class="post-row-left">
-                <CategoryBadge :label="getCategoryLabel(p)" v-if="getCategoryLabel(p)" />
-                <div class="title">{{ p.title }}</div>
-                <div class="excerpt caption">{{ excerpt(p.content) }}</div>
+              <div class="post-header">
+                <div class="post-title-group">
+                  <CategoryBadge
+                    v-if="getCategoryLabel(p)"
+                    :label="getCategoryLabel(p)"
+                  />
+                  <h3 class="post-title">{{ p.title }}</h3>
+                </div>
+
+                <time class="post-date">{{ formatDate(p.created_at) }}</time>
               </div>
 
-              <div class="post-row-right">
-                <div class="meta">{{ formatDate(p.created_at) }}</div>
-              </div>
+              <p class="post-preview">{{ excerpt(p.content) }}</p>
             </article>
           </div>
 
@@ -227,7 +231,7 @@ export default {
     function excerpt(text) {
       if (!text) return "";
       const t = String(text).replace(/\s+/g, " ").trim();
-      return t.length > 80 ? t.slice(0, 80) + "…" : t;
+      return t.length > 200 ? t.slice(0, 200) + "…" : t;
     }
 
     function getCategoryLabel(p) {
@@ -305,13 +309,17 @@ export default {
   margin-top: 20px;
   padding-bottom: 40px;
 }
+
+/* Page head: align title left, controls right and vertically center */
 .page-head {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
+  align-items: center;
   gap: 16px;
   margin-bottom: 12px;
 }
+
+/* Title block */
 .page-head-left {
   display: flex;
   flex-direction: column;
@@ -322,13 +330,56 @@ export default {
   color: var(--muted);
   margin-top: 8px;
 }
-.posts-actions {
+
+/* Actions wrapper: keeps search + write on one line by default */
+.page-head-right {
   display: flex;
-  gap: 10px;
   align-items: center;
+  justify-content: flex-end;
+  min-width: 0;
 }
 
-/* category filter */
+/* posts-actions: controls container */
+.posts-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+/* Search input */
+.search-input {
+  width: 280px;
+  max-width: 100%;
+  height: 44px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 15px;
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+/* Create / write button */
+.create-btn {
+  height: 44px;
+  padding: 0 16px;
+  border-radius: 10px;
+  background: linear-gradient(90deg, var(--primary), var(--primary-hover));
+  color: #fff;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  white-space: nowrap;
+  min-width: 92px;
+  box-sizing: border-box;
+}
+
+/* category filter (unchanged) */
 .category-filter-wrap {
   margin: 14px 0;
 }
@@ -339,9 +390,6 @@ export default {
   padding-bottom: 6px;
   -webkit-overflow-scrolling: touch;
 }
-.category-filter::-webkit-scrollbar { height: 6px; }
-.category-filter::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.08); border-radius: 6px; }
-
 .category-filter-btn {
   white-space: nowrap;
   padding: 8px 12px;
@@ -353,40 +401,13 @@ export default {
   cursor: pointer;
   transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
 }
-.category-filter-btn:hover {
-  border-color: rgba(0,0,0,0.08);
-}
 .category-filter-btn.active {
   background: var(--primary);
   color: #fff;
   border-color: var(--primary);
 }
 
-/* unified heights for search input and create button */
-.search-input {
-  min-width: 260px;
-  height: 44px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  font-size: 15px;
-  box-sizing: border-box;
-}
-.create-btn {
-  height: 44px;
-  padding: 0 14px;
-  border-radius: 10px;
-  background: linear-gradient(90deg, var(--primary), var(--primary-hover));
-  color: #fff;
-  border: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 600;
-}
-
-/* card list */
+/* posts list card */
 .posts-list-card {
   padding: 0;
   overflow: hidden;
@@ -396,116 +417,129 @@ export default {
   flex-direction: column;
   gap: 8px;
 }
+
+/* post row: keeps contents left-aligned */
 .post-row {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  flex-direction: column;
+  gap: 8px;
   padding: 14px 18px;
   border-bottom: 1px solid rgba(231, 235, 241, 0.9);
   cursor: pointer;
   transition:
     background-color 0.12s ease,
     transform 0.08s ease;
+  text-align: left;
 }
 .post-row:hover {
   background: var(--primary-soft);
 }
-.post-row-left {
+
+/* header: badge + title + date */
+.post-header {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
   min-width: 0;
 }
-.title {
+.post-title-group {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.post-title-group .category-badge {
+  flex: 0 0 auto;
+  width: auto;
+}
+.post-title {
+  min-width: 0;
+  margin: 0;
   font-weight: 600;
   color: var(--navy);
-  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-.excerpt {
-  color: var(--muted);
-  font-size: 13px;
-  max-width: 60ch;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
-.post-row-right {
-  min-width: 110px;
-  text-align: right;
-}
-.meta {
+.post-date {
+  flex-shrink: 0;
   color: var(--muted);
   font-size: 13px;
+  white-space: nowrap;
 }
 
-/* empty state */
-.empty-state {
-  padding: 40px;
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  justify-content: center;
-  flex-direction: row;
-}
-.empty-emoji {
-  font-size: 26px;
-}
-.empty-text {
+/* preview: use full width and clamp to 2 lines */
+.post-preview {
+  width: 100%;
+  margin: 6px 0 0;
   color: var(--muted);
+  font-size: 14px;
+  line-height: 1.5;
+  text-align: left;
+
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+
+  white-space: normal;
+  word-break: keep-all;
+  overflow-wrap: break-word;
 }
 
-/* pagination */
-.pagination {
-  display: flex;
-  gap: 8px;
-  justify-content: center;
-  padding: 12px;
-}
-.page-btn {
-  padding: 8px 10px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  cursor: pointer;
-}
-.page-btn.active {
-  background: var(--primary);
-  color: white;
-  border-color: var(--primary);
-}
+/* Responsive behavior */
 
-/* responsive */
+/* Tablet / mobile general: stack title + actions vertically but keep actions row intact */
 @media (max-width: 768px) {
   .page-head {
     flex-direction: column;
     align-items: flex-start;
-    gap: 8px;
+    gap: 12px;
   }
+
+  .page-head-right {
+    width: 100%;
+    display: flex;
+    justify-content: flex-start;
+  }
+
   .posts-actions {
     width: 100%;
+    justify-content: flex-start;
+  }
+
+  .search-input {
+    /* allow input to grow and take remaining width */
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 0;
+  }
+
+  .create-btn {
+    flex: 0 0 92px;
+  }
+}
+
+/* Very narrow screens: stack controls */
+@media (max-width: 360px) {
+  .posts-actions {
     flex-direction: column;
     align-items: stretch;
     gap: 8px;
   }
-  .search-input {
-    width: 100%;
-    min-width: 0;
-  }
+
+  .search-input,
   .create-btn {
     width: 100%;
+    flex-basis: auto;
   }
-  .post-row {
-    padding: 12px;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
-  }
-  .post-row-right {
-    align-self: flex-end;
-    text-align: right;
+
+  .create-btn {
+    min-width: 0;
   }
 }
 </style>
