@@ -33,16 +33,34 @@ export default {
   props: {
     fallback: { type: String, default: "/" },
     label: { type: String, default: "뒤로가기" },
+    // 새로운 prop: 챗봇 등 특수 진입에서 fallback으로 이동할 때 replace를 사용하도록 허용
+    useReplaceFallback: { type: Boolean, default: false },
   },
   setup(props) {
     const router = useRouter();
 
     function goBack() {
-      if (window.history.length > 1) {
-        router.back();
-        return;
+      try {
+        // 일반적으로 history가 있으면 뒤로가기
+        if (window.history.length > 1 && !props.useReplaceFallback) {
+          router.back();
+          return;
+        }
+        // useReplaceFallback이 true면 히스토리를 덮어쓰기(루프 방지)
+        if (props.useReplaceFallback) {
+          router.replace(props.fallback);
+          return;
+        }
+        // 기본 fallback: push
+        router.push(props.fallback);
+      } catch (e) {
+        // 안전하게 fallback으로 대체
+        if (props.useReplaceFallback) {
+          router.replace(props.fallback).catch(() => {});
+        } else {
+          router.push(props.fallback).catch(() => {});
+        }
       }
-      router.push(props.fallback);
     }
 
     return { goBack };

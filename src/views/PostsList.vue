@@ -2,34 +2,21 @@
   <div>
     <AppHeader />
     <main class="container page posts-page">
+      <!-- 1. 뒤로가기 -->
       <BackButton :fallback="'/'" />
 
+      <!-- 2. 제목 / 3. 설명 / 4. 게시글 수 -->
       <section class="page-head">
-        <div class="page-head-left">
-          <h1 class="h-page">커뮤니티</h1>
-          <p class="caption page-desc">
-            부산의 장소와 행사에 대한 이야기를 자유롭게 공유해 보세요.
-          </p>
-          <div class="post-count caption">
-            총 <strong>{{ filteredPosts.length }}</strong>개의 글
-          </div>
-        </div>
-
-        <div class="page-head-right">
-          <div class="posts-actions">
-            <input
-              v-model="query"
-              class="search-input"
-              placeholder="게시글 검색"
-              @input="onSearch"
-              aria-label="게시글 검색" />
-            <button class="btn create-btn" @click="goNew" type="button">
-              + 글쓰기
-            </button>
-          </div>
+        <h1 class="h-page">커뮤니티</h1>
+        <p class="caption page-desc">
+          부산의 장소와 행사에 대한 이야기를 자유롭게 공유해 보세요.
+        </p>
+        <div class="post-count caption">
+          총 <strong>{{ filteredPosts.length }}</strong>개의 글
         </div>
       </section>
 
+      <!-- 5. 카테고리 -->
       <section class="category-filter-wrap">
         <div class="category-filter" role="toolbar" aria-label="카테고리 필터">
           <button
@@ -47,6 +34,21 @@
         <div v-if="categoriesError" class="caption error small">{{ categoriesError }}</div>
       </section>
 
+      <!-- 6. 검색 입력창 -->
+      <!-- 7. 글쓰기 버튼 (검색창 아래) -->
+      <section class="search-and-create">
+        <input
+          v-model="query"
+          class="search-input"
+          placeholder="게시글 검색"
+          @input="onSearch"
+          aria-label="게시글 검색" />
+        <button class="btn create-btn" @click="goNew" type="button">
+          + 글쓰기
+        </button>
+      </section>
+
+      <!-- 8. 게시글 목록 -->
       <section class="card posts-list-card" aria-live="polite">
         <div v-if="loading" class="state">로딩 중...</div>
         <div v-else-if="error" class="state error">{{ error }}</div>
@@ -146,9 +148,8 @@ export default {
     const categories = ref([]);
     const categoriesError = ref("");
     const categoriesLoading = ref(false);
-    const selectedCategory = ref(""); // "" = 전체, otherwise category id
+    const selectedCategory = ref("");
 
-    // build filter options: 전체 + backend categories
     const filterOptions = computed(() => {
       const opts = [{ key: "all", id: "", label: "전체" }];
       for (const c of categories.value) {
@@ -175,7 +176,6 @@ export default {
       loading.value = true;
       error.value = "";
       try {
-        // backend doesn't support server-side category filter currently; pass params for forward-compat
         const res = await listPosts({ category_id: selectedCategory.value || undefined, keyword: query.value || undefined });
         posts.value = Array.isArray(res)
           ? res.sort((a, b) => Number(b.id) - Number(a.id))
@@ -188,16 +188,13 @@ export default {
       }
     }
 
-    // Derived filtered posts: apply category + keyword client-side (because backend doesn't filter)
     const filteredPosts = computed(() => {
       const q = query.value ? String(query.value).toLowerCase() : "";
       return posts.value.filter((p) => {
-        // category filter
         if (selectedCategory.value !== "" && selectedCategory.value !== null) {
           const pid = p.category_id !== undefined && p.category_id !== null ? String(p.category_id) : "";
           if (pid !== String(selectedCategory.value)) return false;
         }
-        // keyword filter (title or content)
         if (q) {
           const hay1 = (p.title || "").toString().toLowerCase();
           const hay2 = (p.content || "").toString().toLowerCase();
@@ -249,12 +246,9 @@ export default {
       selectedCategory.value = id === "" ? "" : String(id);
       page.value = 1;
       updateQueryParams();
-      // Because backend doesn't filter, we only re-filter client-side (posts already loaded)
-      // But if you want to re-fetch from server when server supports filter, use loadPosts()
     }
 
     function updateQueryParams() {
-      // Build new query preserving other params as necessary
       const newQuery = { ...route.query };
       if (query.value) newQuery.keyword = query.value;
       else delete newQuery.keyword;
@@ -263,7 +257,6 @@ export default {
       router.replace({ name: route.name || "PostsList", query: newQuery }).catch(() => {});
     }
 
-    // Initialize from route query if present
     onMounted(async () => {
       await loadCategories();
       const q = route.query || {};
@@ -272,13 +265,11 @@ export default {
       await loadPosts();
     });
 
-    // watch posts change -> ensure page bounds
     watch(page, (v) => {
       if (v < 1) page.value = 1;
       if (v > pages.value) page.value = pages.value;
     });
 
-    // When categories load after posts, ensure labels show
     return {
       posts,
       loading,
@@ -304,48 +295,46 @@ export default {
 </script>
 
 <style scoped>
+/* 컨테이너: Places.vue와 동일한 모바일 패딩 적용 */
 .container {
   max-width: var(--content-width);
-  margin-top: 20px;
-  padding-bottom: 40px;
+  margin: 28px auto;
+  padding: 0 16px;
 }
+
+/* 제목/설명/카운트 블록 */
 .page-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 16px;
-  margin-bottom: 12px;
-}
-.page-head-left {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  margin-bottom: 12px;
+}
+.h-page {
+  margin: 0;
 }
 .page-desc {
   margin: 0;
   color: var(--muted);
-  margin-top: 8px;
 }
-.posts-actions {
-  display: flex;
-  gap: 10px;
-  align-items: center;
+.post-count {
+  color: var(--muted);
 }
 
-/* category filter */
+/* 카테고리 필터: 장소 목록 스타일과 유사하게 wrap 처리, 가로 스크롤 방지 */
 .category-filter-wrap {
   margin: 14px 0;
 }
 .category-filter {
   display: flex;
   gap: 8px;
-  overflow-x: auto;
-  padding-bottom: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+  padding-bottom: 0;
   -webkit-overflow-scrolling: touch;
+  overflow: visible;
 }
-.category-filter::-webkit-scrollbar { height: 6px; }
-.category-filter::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.08); border-radius: 6px; }
 
+/* category btn */
 .category-filter-btn {
   white-space: nowrap;
   padding: 8px 12px;
@@ -355,10 +344,6 @@ export default {
   color: var(--muted);
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
-}
-.category-filter-btn:hover {
-  border-color: rgba(0,0,0,0.08);
 }
 .category-filter-btn.active {
   background: var(--primary);
@@ -366,9 +351,18 @@ export default {
   border-color: var(--primary);
 }
 
-/* unified heights for search input and create button */
+/* 검색 + 글쓰기: 모바일 전용 스택, 검색 위 카테고리 */
+.search-and-create {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 22px; /* 글쓰기 버튼과 목록 사이 여백 20~24px 권장 */
+}
+
+/* 검색창 및 버튼 전체 너비 */
 .search-input {
-  min-width: 260px;
+  width: 100%;
+  min-width: 0;
   height: 44px;
   padding: 10px 12px;
   border-radius: 10px;
@@ -377,7 +371,10 @@ export default {
   font-size: 15px;
   box-sizing: border-box;
 }
+
+/* 글쓰기 버튼 전체 너비 */
 .create-btn {
+  width: 100%;
   height: 44px;
   padding: 0 14px;
   border-radius: 10px;
@@ -390,18 +387,20 @@ export default {
   font-weight: 600;
 }
 
-/* card list */
+/* posts list card */
 .posts-list-card {
   padding: 0;
   overflow: hidden;
 }
+
+/* 게시글 목록 항목 스타일(기존 유지) */
 .posts-body {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-/* Post row / item */
+/* ensure left alignment for titles, previews and meta */
 .post-row {
   display: flex;
   flex-direction: column;
@@ -409,10 +408,7 @@ export default {
   padding: 14px 18px;
   border-bottom: 1px solid rgba(231, 235, 241, 0.9);
   cursor: pointer;
-  transition:
-    background-color 0.12s ease,
-    transform 0.08s ease;
-  text-align: left;
+  text-align: left; /* 강제 왼쪽 정렬 */
 }
 .post-row:hover {
   background: var(--primary-soft);
@@ -426,6 +422,7 @@ export default {
   gap: 16px;
   width: 100%;
   min-width: 0;
+  text-align: left;
 }
 .post-title-group {
   display: flex;
@@ -447,12 +444,14 @@ export default {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  text-align: left; /* 제목 왼쪽 정렬 */
 }
 .post-date {
   flex-shrink: 0;
   color: var(--muted);
   font-size: 13px;
   white-space: nowrap;
+  text-align: right;
 }
 
 /* Preview: up to 2 lines */
@@ -462,7 +461,7 @@ export default {
   color: var(--muted);
   font-size: 14px;
   line-height: 1.5;
-  text-align: left;
+  text-align: left; /* 미리보기 왼쪽 정렬 */
 
   display: -webkit-box;
   overflow: hidden;
@@ -510,49 +509,13 @@ export default {
   border-color: var(--primary);
 }
 
-/* Desktop: ensure left alignment (no centering for post contents) */
-@media (min-width: 769px) {
-  .post-row {
-    padding: 14px 18px;
-  }
-}
-
-/* responsive */
+/* responsive adjustments */
 @media (max-width: 768px) {
   .page-head {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 8px;
+    gap: 6px;
   }
-
-  /* Make search + button stack and fill width on mobile */
-  .posts-actions {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 8px;
-    width: 100%;
-  }
-  .search-input {
-    width: 100%;
-    min-width: 0;
-    max-width: none;
-    box-sizing: border-box;
-  }
-  .create-btn {
-    width: 100%;
-    box-sizing: border-box;
-    justify-content: center;
-  }
-
-  .posts-actions .search-input,
-  .posts-actions .create-btn {
-    height: 44px;
-  }
-
-  .search-input {
-    /* remove fixed desktop min-width impact */
-    min-width: 0;
+  .search-and-create {
+    gap: 10px; /* 검색 & 글쓰기 사이 10~12px 권장 */
   }
 
   .post-row {
