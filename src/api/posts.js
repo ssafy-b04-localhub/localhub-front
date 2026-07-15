@@ -37,3 +37,34 @@ export async function verifyPostPassword(postId, password) {
   const res = await api.post(`/posts/${postId}/verify-password`, { password });
   return res.data;
 }
+
+/* ---------------------------
+   댓글 관련 API (main.py에 맞춤)
+   - GET  /posts/{post_id}/comments
+   - POST /posts/{post_id}/comments  (body: { content, password })
+   - PUT  /comments/{comment_id}     (body: { content?, password })
+   - DELETE /comments/{comment_id}?password=...
+   --------------------------- */
+
+export async function listComments(postId) {
+  const res = await api.get(`/posts/${postId}/comments`);
+  return res.data; // expecting array of { id, post_id, content, created_at, updated_at }
+}
+
+export async function createComment(postId, { content, password }) {
+  const payload = { content, password };
+  const res = await api.post(`/posts/${postId}/comments`, payload);
+  return res.data; // expecting { id, message }
+}
+
+export async function updateComment(commentId, { content, password }) {
+  const payload = { password };
+  if (content !== undefined) payload.content = content;
+  const res = await api.put(`/comments/${commentId}`, payload);
+  return res.data; // expecting { message, comment }
+}
+
+export async function deleteComment(commentId, password) {
+  const res = await api.delete(`/comments/${commentId}`, { params: { password } });
+  return res.data; // expecting { message }
+}

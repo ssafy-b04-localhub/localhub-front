@@ -9,7 +9,7 @@
 
       <article
         v-else-if="post"
-        class="post-card card post-detail-card"
+        class="post-card card post-detail-card content-card"
         role="article">
         <header class="post-header">
           <CategoryBadge :label="categoryLabel" v-if="categoryLabel" />
@@ -36,6 +36,9 @@
         </footer>
       </article>
 
+      <!-- 댓글 섹션 분리 컴포넌트 (같은 content-card 규칙을 사용하여 정렬 일치) -->
+      <CommentSection v-if="post" :post-id="id" />
+
       <PasswordModal
         :visible="showPwdModal"
         @close="onPwdModalClose"
@@ -55,6 +58,7 @@ import AppHeader from "../components/AppHeader.vue";
 import PasswordModal from "../components/PasswordModal.vue";
 import BackButton from "../components/BackButton.vue";
 import CategoryBadge from "../components/CategoryBadge.vue";
+import CommentSection from "../components/comments/CommentSection.vue";
 import { getPost, deletePost, updatePost } from "../api/posts.js";
 import { listCategories } from "../api/categories.js";
 import { useRoute, useRouter } from "vue-router";
@@ -62,7 +66,7 @@ import formatDateToKorean from "../utils/formatDate.js";
 
 export default {
   name: "PostDetail",
-  components: { AppHeader, PasswordModal, BackButton, CategoryBadge },
+  components: { AppHeader, PasswordModal, BackButton, CategoryBadge, CommentSection },
   setup() {
     const route = useRoute();
     const router = useRouter();
@@ -186,6 +190,7 @@ export default {
     }
 
     return {
+      id,
       post,
       loading,
       error,
@@ -205,15 +210,16 @@ export default {
 </script>
 
 <style scoped>
-.container {
-  max-width: var(--content-width);
-  padding-bottom: 40px;
-}
-.post-detail-card {
+/* content-card: 게시글/댓글 카드 정렬을 완전히 동일하게 유지하기 위한 공통 스타일 */
+.content-card {
   max-width: 820px;
   margin: 20px auto;
   padding: 22px;
+  box-sizing: border-box;
+  border-radius: var(--radius-md);
 }
+
+/* Post specific */
 .post-header {
   display: flex;
   flex-direction: column;
@@ -253,7 +259,7 @@ export default {
 
 /* responsive */
 @media (max-width: 768px) {
-  .post-detail-card {
+  .content-card {
     padding: 16px;
     margin: 12px 0;
   }
