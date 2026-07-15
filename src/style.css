@@ -509,41 +509,102 @@ a {
   }
 }
 @media (max-width: 768px) {
+  /* MOBILE: use slightly tighter container gutter */
   .container {
     padding: 0 16px;
   }
+
+  /*
+    HERO adjustments for mobile:
+    - set single-column layout
+    - hide the right decorative visual
+    - ensure bottom spacing is reserved even when decorative is hidden
+    - make .hero-actions stack full-width and provide a consistent bottom gap
+  */
   .hero {
     grid-template-columns: 1fr;
-    padding: 20px;
-    gap: 16px;
+    padding: 24px 16px 24px; /* top/right/left/bottom: keep enough bottom padding for buttons */
+    gap: 14px;
+    margin: 20px auto; /* slightly smaller vertical margins on mobile */
   }
+
+  /* Hide the right visual completely on mobile */
   .hero .hero-right {
-    height: 160px;
+    display: none;
   }
+  .hero .wave {
+    display: none;
+  }
+
   .h-hero {
-    font-size: 28px;
+    font-size: 30px;
+    line-height: 1.2;
+    word-break: keep-all;
+    margin-bottom: 12px;
   }
-  .h-page {
-    font-size: 22px;
+
+  .hero-leadin {
+    line-height: 1.6;
+    word-break: keep-all;
+    margin-bottom: 12px;
   }
-  .h-section {
-    font-size: 18px;
+
+  /* Actions: stack vertically, full-width buttons, equal size */
+  .hero-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+    margin-top: 6px;
+    margin-bottom: 24px; /* Ensure consistent bottom gap below buttons when visual is hidden */
   }
+
+  .hero-actions .cta {
+    display: inline-flex;
+    width: 100%;
+    height: 48px;
+    box-sizing: border-box;
+    justify-content: center;
+    align-items: center;
+    padding: 0 16px;
+    white-space: nowrap;
+    flex: none;
+  }
+
+  .hero-actions .cta-text {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Keep post rows readable on small screens */
+  .post-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+  }
+
+  .post-row-left {
+    width: 100%;
+  }
+
+  .meta {
+    align-self: flex-end;
+    margin-left: 0;
+  }
+
+  /* Prevent horizontal scroll root causes: ensure box-sizing consistent */
+  *, *::before, *::after {
+    box-sizing: border-box;
+  }
+
+  /* Cards/grid adjustments */
   .places-grid {
     grid-template-columns: 1fr;
   }
   .cat-card {
     flex: 0 0 68%;
     min-width: 220px;
-  }
-  .post-row {
-    padding: 12px;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 6px;
-  }
-  input[type="text"],
-  select {
-    height: 44px;
   }
 }
