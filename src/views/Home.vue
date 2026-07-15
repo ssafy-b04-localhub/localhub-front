@@ -95,6 +95,7 @@
               "
             >
               <div style="font-size: 24px">📝</div>
+
               <div>
                 게시글이 없습니다. 새로운 이야기를 시작해 보세요!
               </div>
@@ -151,6 +152,7 @@ export default {
 
   setup() {
     const contentTypes = ref([]);
+    const allContentTypes = ref([]);
     const posts = ref([]);
     const loadingPosts = ref(false);
     const scrollEl = ref(null);
@@ -165,16 +167,21 @@ export default {
       레포츠: "🏄",
       숙박: "🏨",
       쇼핑: "🛍️",
-      음식점: "🍽️",
     };
 
     async function load() {
       try {
         const contentTypeResponse = await getContentTypes();
 
-        contentTypes.value =
+        allContentTypes.value =
           contentTypeResponse.content_types || [];
+
+        contentTypes.value = allContentTypes.value.filter(
+          (category) =>
+            String(category?.name ?? "").trim() !== "음식점",
+        );
       } catch {
+        allContentTypes.value = [];
         contentTypes.value = [];
       }
 
@@ -212,7 +219,7 @@ export default {
         post.category_id !== undefined &&
         post.category_id !== null
       ) {
-        const category = contentTypes.value.find(
+        const category = allContentTypes.value.find(
           (item) =>
             Number(item.id) === Number(post.category_id),
         );
