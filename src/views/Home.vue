@@ -489,16 +489,74 @@ export default {
 }
 
 @media (max-width: 768px) {
+  /* Make banner a single column block and remove the right visual entirely */
   .hero {
-    grid-template-columns: 1fr;
+    display: block;
+    grid-template-columns: none;
     gap: 14px;
-    padding: 20px;
+    /* mobile spacing per request */
+    margin: 20px auto;
+    padding: 24px 20px;
   }
 
+  /* Ensure left column uses full width */
+  .hero-left {
+    width: 100%;
+    max-width: none;
+  }
+
+  /* Hide the right visual (wave + container) completely on mobile */
+  .hero-right {
+    display: none;
+  }
+
+  .hero-right .wave {
+    display: none;
+  }
+
+  /* Headline adjustments to avoid awkward Korean breaks */
   .h-hero {
-    font-size: 28px;
+    font-size: 30px;
+    line-height: 1.2;
+    word-break: keep-all;
+    margin-bottom: 12px;
   }
 
+  .hero-leadin {
+    line-height: 1.6;
+    word-break: keep-all;
+    margin-bottom: 18px;
+  }
+
+  /* Actions: stack vertically, full-width buttons, equal size */
+  .hero-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+    margin-top: 6px;
+  }
+
+  .hero-actions .cta {
+    display: inline-flex;
+    width: 100%;
+    height: 48px;
+    box-sizing: border-box;
+    justify-content: center;
+    align-items: center;
+    padding: 0 16px;
+    white-space: nowrap;
+    flex: none;
+  }
+
+  /* Ensure the text itself never wraps into two lines on mobile */
+  .hero-actions .cta-text {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* Keep post rows readable on small screens */
   .post-row {
     align-items: flex-start;
     flex-direction: column;
@@ -513,6 +571,11 @@ export default {
   .meta {
     align-self: flex-end;
     margin-left: 0;
+  }
+
+  /* Prevent horizontal scroll root causes: ensure box-sizing consistent */
+  *, *::before, *::after {
+    box-sizing: border-box;
   }
 }
 </style>
