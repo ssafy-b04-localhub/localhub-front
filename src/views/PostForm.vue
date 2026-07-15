@@ -127,7 +127,8 @@ export default {
             content: content.value,
             password: password.value,
           });
-          router.push({ name: "PostsList" });
+          // 생성 성공 시 글쓰기 페이지를 히스토리에서 대체하여 뒤로가기 시 글쓰기 화면으로 돌아오지 않게 함
+          router.replace({ name: "PostsList" });
         }
       } catch (err) {
         const msg = err?.response?.data?.detail || "요청에 실패했습니다.";

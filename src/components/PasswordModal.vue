@@ -51,7 +51,10 @@ export default {
   name: "PasswordModal",
   props: {
     visible: { type: Boolean, required: true },
+    // optional: parent may pass a function to handle confirmation (preferred)
+    onConfirm: { type: Function, required: false },
   },
+  // support both patterns: event-based and prop-based
   emits: ["close", "confirm"],
   setup(props, { emit }) {
     const pwd = ref("");
@@ -70,14 +73,12 @@ export default {
           loading.value = false;
           show.value = false;
           await nextTick();
-          // focus input when modal opens
           if (inputEl.value) inputEl.value.focus();
         }
       },
     );
 
     function close() {
-      // reset local state
       pwd.value = "";
       error.value = "";
       loading.value = false;
@@ -87,7 +88,6 @@ export default {
 
     function toggleShow() {
       show.value = !show.value;
-      // restore focus to input
       if (inputEl.value) inputEl.value.focus();
     }
 
@@ -99,13 +99,20 @@ export default {
       loading.value = true;
       error.value = "";
       try {
-        // parent handler may validate and throw on failure.
-        // await the parent's result so modal can show loading state.
-        await emit("confirm", pwd.value);
-        // on success the parent may navigate; modal should close.
-        close();
+        if (props.onConfirm && typeof props.onConfirm === "function") {
+          // Preferred flow: call parent's async handler and await result.
+          // Parent should throw Error on validation failure so modal can show message.
+          await props.onConfirm(pwd.value);
+          // success -> modal closes itself
+          close();
+        } else {
+          // Backward-compatible flow: emit event to parent.
+          // NOTE: emit() does not return parent's promise; parent must
+          // close modal by reacting to 'confirm' event and updating visible.
+          emit("confirm", pwd.value);
+          // don't close automatically; parent decides.
+        }
       } catch (err) {
-        // normalize error message
         const msg =
           (err &&
             (err.message ||
@@ -118,7 +125,6 @@ export default {
       }
     }
 
-    // ESC to close
     function onKeydown(e) {
       if (e.key === "Escape" && props.visible) {
         close();

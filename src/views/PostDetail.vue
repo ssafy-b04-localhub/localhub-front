@@ -27,7 +27,7 @@
             </button>
             <button
               class="btn btn-outline danger"
-              @click="showDeleteModal = true"
+              @click="onDeleteClick"
               type="button">
               삭제
             </button>
@@ -35,15 +35,17 @@
         </footer>
       </article>
 
+      <!-- Edit modal: pass handler as prop (preferred) -->
       <PasswordModal
         :visible="showPwdModal"
         @close="onPwdModalClose"
-        @confirm="onPwdConfirmForEdit" />
+        :on-confirm="onPwdConfirmForEdit" />
 
+      <!-- Delete modal: pass handler as prop (preferred) -->
       <PasswordModal
         :visible="showDeleteModal"
         @close="() => (showDeleteModal = false)"
-        @confirm="onDeleteConfirm" />
+        :on-confirm="onDeleteConfirm" />
     </main>
   </div>
 </template>
@@ -53,7 +55,7 @@ import { ref, onMounted, computed } from "vue";
 import AppHeader from "../components/AppHeader.vue";
 import PasswordModal from "../components/PasswordModal.vue";
 import BackButton from "../components/BackButton.vue";
-import { getPost, deletePost, verifyPostPassword } from "../api/posts.js";
+import { getPost, deletePost, updatePost } from "../api/posts.js";
 import { useRoute, useRouter } from "vue-router";
 import formatDateToKorean from "../utils/formatDate.js";
 
@@ -67,6 +69,7 @@ export default {
     const post = ref(null);
     const loading = ref(false);
     const error = ref("");
+    // modal visibility states
     const showDeleteModal = ref(false);
     const showPwdModal = ref(false);
 
@@ -105,56 +108,64 @@ export default {
         .join("");
     });
 
-    // --- Edit flow: open password modal, verify via backend, then navigate ---
+    // --- click handlers to open appropriate modal ---
     function onEditClick() {
-      // open password modal for edit verification
       showPwdModal.value = true;
+    }
+    function onDeleteClick() {
+      showDeleteModal.value = true;
     }
 
     function onPwdModalClose() {
       showPwdModal.value = false;
     }
 
-    // handler for confirm emitted by PasswordModal for EDIT action
-    // PasswordModal awaits this promise and will display any thrown error message
+    // Parent confirm handler for EDIT: use existing PUT /posts/{id} to validate password.
+    // We send only { password } so backend checks password and performs no update when title/content absent.
+    // Parent must throw Error on failure so modal displays message and stays open.
     async function onPwdConfirmForEdit(pwd) {
-      // Do not implement any client-side comparison or insecure fallback.
-      // Attempt to call backend verification endpoint (verifyPostPassword).
-      // If backend does not implement this endpoint, this call will fail
-      // and the error will be shown inside the modal (parent throws).
       try {
-        const res = await verifyPostPassword(id, pwd);
-        // Expected successful response: { verified: true }
-        if (res && res.verified) {
-          // close modal and navigate to edit
-          showPwdModal.value = false;
-          router.push({ name: "PostEdit", params: { id } });
-          return;
-        }
-        // if backend responds but not verified, throw with message
-        throw new Error(res?.detail || "비밀번호가 일치하지 않습니다.");
+        // call update endpoint with only password to validate credentials
+        await updatePost(id, { password: pwd });
+        // success -> navigate to edit (PasswordModal will auto-close after awaited success)
+        router.push({ name: "PostEdit", params: { id } });
+        return;
       } catch (err) {
-        // Normalize and rethrow so PasswordModal can show message
+        const status = err?.response?.status;
+        if (status === 404) {
+          throw new Error("게시글을 찾을 수 없습니다.");
+        }
+        if (status === 403) {
+          throw new Error("비밀번호가 일치하지 않습니다.");
+        }
         const msg =
           err?.response?.data?.detail ||
           err?.message ||
-          "비밀번호 검증에 실패했습니다.";
+          "비밀번호 확인 중 오류가 발생했습니다.";
         throw new Error(msg);
       }
     }
 
-    // Delete flow (existing): reuse modal for delete; parent handles deletion
+    // Parent confirm handler for DELETE: keep existing logic (uses deletePost which expects password as query param)
     async function onDeleteConfirm(pwd) {
       try {
         await deletePost(id, pwd);
+        // success -> navigate away (PasswordModal will auto-close after awaited success)
         router.push({ name: "PostsList" });
+        return;
       } catch (err) {
+        const status = err?.response?.status;
+        if (status === 404) {
+          throw new Error("게시글을 찾을 수 없습니다.");
+        }
+        if (status === 403) {
+          throw new Error("비밀번호가 일치하지 않습니다.");
+        }
         const msg =
           err?.response?.data?.detail ||
+          err?.message ||
           "삭제에 실패했습니다. 비밀번호를 확인하세요.";
         throw new Error(msg);
-      } finally {
-        showDeleteModal.value = false;
       }
     }
 
@@ -165,6 +176,7 @@ export default {
       showDeleteModal,
       showPwdModal,
       onEditClick,
+      onDeleteClick,
       onDeleteConfirm,
       onPwdConfirmForEdit,
       onPwdModalClose,
