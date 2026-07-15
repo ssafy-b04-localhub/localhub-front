@@ -14,6 +14,23 @@
           </header>
 
           <div class="form-body">
+            <label class="field-label" for="category">카테고리</label>
+            <select
+              id="category"
+              v-model.number="categoryId"
+              :disabled="categoriesLoading"
+            >
+              <option value="">카테고리를 선택하지 않음</option>
+              <option
+                v-for="c in categories"
+                :key="c.id"
+                :value="c.id"
+              >
+                {{ c.name }}
+              </option>
+            </select>
+            <div v-if="categoriesError" class="caption error">{{ categoriesError }}</div>
+
             <label class="field-label" for="title">제목</label>
             <input
               id="title"
@@ -61,6 +78,7 @@
 import { ref, onMounted } from "vue";
 import AppHeader from "../components/AppHeader.vue";
 import { createPost, getPost, updatePost } from "../api/posts.js";
+import { listCategories } from "../api/categories.js";
 import { useRoute, useRouter } from "vue-router";
 import BackButton from "../components/BackButton.vue";
 
@@ -81,6 +99,25 @@ export default {
       "수정 시 비밀번호를 입력해야 변경/삭제가 가능합니다.",
     );
 
+    // categories
+    const categories = ref([]);
+    const categoriesLoading = ref(false);
+    const categoriesError = ref("");
+    const categoryId = ref(""); // '' means none
+
+    async function loadCategories() {
+      categoriesLoading.value = true;
+      categoriesError.value = "";
+      try {
+        const res = await listCategories();
+        categories.value = Array.isArray(res) ? res : [];
+      } catch {
+        categoriesError.value = "카테고리 목록을 불러오지 못했습니다.";
+      } finally {
+        categoriesLoading.value = false;
+      }
+    }
+
     async function load() {
       error.value = "";
       if (!isEdit) return;
@@ -92,6 +129,13 @@ export default {
         }
         title.value = p.title || "";
         content.value = p.content || "";
+        if (p.category_id !== undefined && p.category_id !== null) {
+          categoryId.value = Number(p.category_id);
+        } else if (p.category && p.category.id !== undefined) {
+          categoryId.value = Number(p.category.id);
+        } else {
+          categoryId.value = "";
+        }
       } catch {
         error.value = "게시글을 불러오지 못했습니다.";
       }
@@ -114,20 +158,18 @@ export default {
 
       submitting.value = true;
       try {
+        const payload = {
+          title: title.value,
+          content: content.value,
+          password: password.value,
+          category_id: categoryId.value === "" ? null : Number(categoryId.value),
+        };
+
         if (isEdit) {
-          await updatePost(id, {
-            title: title.value,
-            content: content.value,
-            password: password.value,
-          });
+          await updatePost(id, payload);
           router.push({ name: "PostDetail", params: { id } });
         } else {
-          await createPost({
-            title: title.value,
-            content: content.value,
-            password: password.value,
-          });
-          // 생성 성공 시 글쓰기 페이지를 히스토리에서 대체하여 뒤로가기 시 글쓰기 화면으로 돌아오지 않게 함
+          await createPost(payload);
           router.replace({ name: "PostsList" });
         }
       } catch (err) {
@@ -142,7 +184,10 @@ export default {
       router.back();
     }
 
-    onMounted(load);
+    onMounted(async () => {
+      await loadCategories();
+      await load();
+    });
 
     return {
       title,
@@ -154,6 +199,10 @@ export default {
       submitting,
       error,
       passwordHelp,
+      categories,
+      categoriesLoading,
+      categoriesError,
+      categoryId,
     };
   },
 };
@@ -191,7 +240,8 @@ export default {
   color: var(--navy);
 }
 input,
-textarea {
+textarea,
+select {
   width: 100%;
   padding: 12px;
   border-radius: 10px;

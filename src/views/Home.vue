@@ -1,15 +1,19 @@
 <template>
   <div class="page home">
     <AppHeader />
+
     <main class="container">
       <section class="hero">
         <div class="hero-left">
           <div class="kicker">부산 로컬 큐레이션</div>
+
           <h1 class="h-hero">부산의 새로운 장소를 발견해 보세요</h1>
+
           <p class="hero-leadin">
             관광지부터 문화시설, 축제, 맛집까지 부산의 다양한 이야기를
             만나보세요.
           </p>
+
           <div class="hero-actions">
             <button class="btn cta primary" @click="browsePlaces">
               <span class="cta-icon" aria-hidden="true">📍</span>
@@ -31,27 +35,32 @@
       <section class="section" aria-labelledby="cat-heading">
         <div class="section-header">
           <h2 id="cat-heading" class="section-title">카테고리</h2>
+
           <div class="section-meta caption">
             스와이프하여 더 많은 카테고리를 확인하세요
           </div>
         </div>
 
         <div
-          class="cat-scroll"
           ref="scrollEl"
+          class="cat-scroll"
           @wheel.prevent="onWheel"
-          @touchstart="onTouchStart">
+          @touchstart="onTouchStart"
+        >
           <div
-            class="cat-card"
             v-for="c in contentTypes"
             :key="c.id"
-            @click="goToPlaces(c)"
+            class="cat-card"
             role="button"
             tabindex="0"
-            @keyup.enter="goToPlaces(c)">
+            @click="goToPlaces(c)"
+            @keyup.enter="goToPlaces(c)"
+          >
             <div class="emoji">{{ emojiFor(c.name) }}</div>
             <div class="cat-title">{{ c.name }}</div>
-            <div class="cat-desc">부산의 {{ c.name }} 정보를 확인하세요</div>
+            <div class="cat-desc">
+              부산의 {{ c.name }} 정보를 확인하세요
+            </div>
           </div>
         </div>
       </section>
@@ -59,16 +68,22 @@
       <section class="section" aria-labelledby="recent-heading">
         <div class="section-header">
           <h2 id="recent-heading" class="section-title">최근 게시글</h2>
-          <router-link to="/posts" class="section-link"
-            >전체 보기 →</router-link
-          >
+
+          <router-link to="/posts" class="section-link">
+            전체 보기 →
+          </router-link>
         </div>
 
         <div class="posts-card card">
           <div class="posts-list">
-            <div v-if="loadingPosts" class="state" style="padding: 18px">
+            <div
+              v-if="loadingPosts"
+              class="state"
+              style="padding: 18px"
+            >
               로딩 중...
             </div>
+
             <div
               v-else-if="posts.length === 0"
               class="state empty"
@@ -77,18 +92,35 @@
                 display: flex;
                 gap: 12px;
                 align-items: center;
-              ">
+              "
+            >
               <div style="font-size: 24px">📝</div>
-              <div>게시글이 없습니다. 새로운 이야기를 시작해 보세요!</div>
+              <div>
+                게시글이 없습니다. 새로운 이야기를 시작해 보세요!
+              </div>
             </div>
+
             <div v-else>
               <article
                 v-for="p in posts.slice(0, 6)"
                 :key="p.id"
                 class="post-row"
-                @click="goPost(p.id)">
-                <div class="title">{{ p.title }}</div>
-                <div class="meta">{{ formatDate(p.created_at) }}</div>
+                @click="goPost(p.id)"
+              >
+                <div class="post-row-left">
+                  <CategoryBadge
+                    v-if="getCategoryLabel(p)"
+                    :label="getCategoryLabel(p)"
+                  />
+
+                  <div class="recent-post-title">
+                    {{ p.title }}
+                  </div>
+                </div>
+
+                <div class="meta">
+                  {{ formatDate(p.created_at) }}
+                </div>
               </article>
             </div>
           </div>
@@ -100,20 +132,29 @@
 
 <script>
 import { ref, onMounted } from "vue";
+import { useRouter } from "vue-router";
+
 import AppHeader from "../components/AppHeader.vue";
+import CategoryBadge from "../components/CategoryBadge.vue";
+
 import { getContentTypes } from "../api/content.js";
 import { listPosts } from "../api/posts.js";
-import { useRouter } from "vue-router";
 import formatDateToKorean from "../utils/formatDate.js";
 
 export default {
   name: "Home",
-  components: { AppHeader },
+
+  components: {
+    AppHeader,
+    CategoryBadge,
+  },
+
   setup() {
     const contentTypes = ref([]);
     const posts = ref([]);
     const loadingPosts = ref(false);
     const scrollEl = ref(null);
+
     const router = useRouter();
 
     const emojiMap = {
@@ -129,17 +170,23 @@ export default {
 
     async function load() {
       try {
-        const ct = await getContentTypes();
-        contentTypes.value = ct.content_types || [];
+        const contentTypeResponse = await getContentTypes();
+
+        contentTypes.value =
+          contentTypeResponse.content_types || [];
       } catch {
         contentTypes.value = [];
       }
 
       loadingPosts.value = true;
+
       try {
-        const ps = await listPosts();
-        posts.value = Array.isArray(ps)
-          ? ps.sort((a, b) => Number(b.id) - Number(a.id))
+        const postResponse = await listPosts();
+
+        posts.value = Array.isArray(postResponse)
+          ? postResponse.sort(
+              (a, b) => Number(b.id) - Number(a.id),
+            )
           : [];
       } catch {
         posts.value = [];
@@ -148,33 +195,78 @@ export default {
       }
     }
 
+    function getCategoryLabel(post) {
+      if (!post) {
+        return null;
+      }
+
+      if (post.category_name) {
+        return post.category_name;
+      }
+
+      if (post.category && post.category.name) {
+        return post.category.name;
+      }
+
+      if (
+        post.category_id !== undefined &&
+        post.category_id !== null
+      ) {
+        const category = contentTypes.value.find(
+          (item) =>
+            Number(item.id) === Number(post.category_id),
+        );
+
+        return category ? category.name : null;
+      }
+
+      return null;
+    }
+
     function emojiFor(name) {
       return emojiMap[name] || "📍";
     }
 
-    function goToPlaces(c) {
-      router.push({ name: "Places", query: { content_type: c.id } });
+    function goToPlaces(category) {
+      router.push({
+        name: "Places",
+        query: {
+          content_type: category.id,
+        },
+      });
     }
 
     function browsePlaces() {
-      router.push({ name: "Places" });
+      router.push({
+        name: "Places",
+      });
     }
 
     function goPost(id) {
-      router.push({ name: "PostDetail", params: { id } });
+      router.push({
+        name: "PostDetail",
+        params: {
+          id,
+        },
+      });
     }
 
-    function formatDate(s) {
-      return formatDateToKorean(s) || "";
+    function formatDate(value) {
+      return formatDateToKorean(value) || "";
     }
 
-    function onWheel(e) {
-      const el = scrollEl.value;
-      if (!el) return;
-      if (el.scrollWidth > el.clientWidth) {
-        el.scrollLeft += e.deltaY;
+    function onWheel(event) {
+      const element = scrollEl.value;
+
+      if (!element) {
+        return;
+      }
+
+      if (element.scrollWidth > element.clientWidth) {
+        element.scrollLeft += event.deltaY;
       }
     }
+
     function onTouchStart() {}
 
     onMounted(load);
@@ -183,21 +275,21 @@ export default {
       contentTypes,
       posts,
       loadingPosts,
-      emojiFor,
       scrollEl,
+      emojiFor,
+      getCategoryLabel,
       goToPlaces,
-      goPost,
       browsePlaces,
+      goPost,
+      formatDate,
       onWheel,
       onTouchStart,
-      formatDate,
     };
   },
 };
 </script>
 
 <style scoped>
-/* hero CTA: keep typography and sizing identical for primary and secondary */
 .hero {
   margin: 28px auto;
   padding: 36px;
@@ -206,28 +298,35 @@ export default {
   grid-template-columns: 1fr 380px;
   gap: 28px;
   align-items: center;
-  background: linear-gradient(180deg, #f5fbff 0%, #ffffff 60%);
+  background: linear-gradient(
+    180deg,
+    #f5fbff 0%,
+    #ffffff 60%
+  );
   box-shadow: var(--shadow-soft);
 }
+
 .hero-left {
   max-width: 640px;
 }
+
 .kicker {
   display: inline-block;
+  margin-bottom: 8px;
   color: var(--primary);
   font-weight: 600;
-  margin-bottom: 8px;
 }
+
 .h-hero {
   margin: 0 0 12px;
 }
+
 .hero-leadin {
   margin: 0 0 18px;
   color: var(--muted);
   font-size: 15px;
 }
 
-/* CTA both use .cta with equal size/typography */
 .cta {
   display: inline-flex;
   align-items: center;
@@ -240,29 +339,37 @@ export default {
   line-height: 1;
   text-decoration: none;
 }
+
 .cta .cta-icon {
-  font-size: 18px;
   display: inline-block;
+  font-size: 18px;
 }
+
 .cta .cta-text {
   display: inline-block;
 }
 
 .cta.primary {
-  background: linear-gradient(90deg, var(--primary), var(--primary-hover));
-  color: #fff;
   border: none;
-}
-.cta.secondary {
-  background: transparent;
-  color: var(--navy);
-  border: 1px solid var(--border);
+  background: linear-gradient(
+    90deg,
+    var(--primary),
+    var(--primary-hover)
+  );
+  color: #ffffff;
 }
 
-/* section header common */
+.cta.secondary {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--navy);
+}
+
+/* 공통 섹션 헤더 */
 .section {
   margin-top: 20px;
 }
+
 .section-header {
   display: flex;
   align-items: center;
@@ -270,64 +377,135 @@ export default {
   gap: 12px;
   margin-bottom: 10px;
 }
+
 .section-title {
-  font-size: 22px;
-  font-weight: 700;
   margin: 0;
   color: var(--navy);
-}
-.section-link {
-  color: var(--primary);
-  font-weight: 600;
+  font-size: 22px;
+  font-weight: 700;
 }
 
-/* category scroll and posts list rely on global styles */
+.section-link {
+  flex-shrink: 0;
+  color: var(--primary);
+  font-weight: 600;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.section-link:hover {
+  color: var(--primary-hover);
+}
+
+/* 카테고리 */
 .cat-scroll {
   display: flex;
+  align-items: stretch;
   gap: 14px;
   padding: 12px 4px;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   scroll-snap-type: x mandatory;
-  align-items: stretch;
 }
+
 .cat-card {
-  scroll-snap-align: start;
-  flex: 0 0 200px;
-  min-width: 190px;
-  border-radius: 14px;
-  border: 1px solid var(--border);
-  padding: 14px;
   display: flex;
+  flex: 0 0 200px;
   flex-direction: column;
   gap: 10px;
+  min-width: 190px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  scroll-snap-align: start;
 }
+
 .cat-card:hover {
   transform: translateY(-4px);
   box-shadow: var(--shadow-weak);
 }
 
-/* posts card spacing already present; ensure consistent section heading usage */
+/* 최근 게시글 */
 .posts-card {
   margin-top: 6px;
   padding: 0;
   overflow: hidden;
 }
 
-/* responsive */
+.post-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(231, 235, 241, 0.8);
+  cursor: pointer;
+}
+
+.post-row:last-child {
+  border-bottom: none;
+}
+
+.post-row:hover {
+  background: var(--primary-soft);
+}
+
+.post-row-left {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.recent-post-title {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--navy);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meta {
+  flex-shrink: 0;
+  margin-left: 12px;
+  color: var(--muted);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
 @media (max-width: 1024px) {
   .hero {
     grid-template-columns: 1fr 240px;
   }
 }
+
 @media (max-width: 768px) {
   .hero {
     grid-template-columns: 1fr;
-    padding: 20px;
     gap: 14px;
+    padding: 20px;
   }
+
   .h-hero {
     font-size: 28px;
+  }
+
+  .post-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px;
+  }
+
+  .post-row-left {
+    width: 100%;
+  }
+
+  .meta {
+    align-self: flex-end;
+    margin-left: 0;
   }
 }
 </style>

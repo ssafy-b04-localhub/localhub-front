@@ -11,8 +11,7 @@
             부산의 장소와 행사에 대한 이야기를 자유롭게 공유해 보세요.
           </p>
           <div class="post-count caption">
-            총 <strong>{{ posts.length }}</strong
-            >개의 글
+            총 <strong>{{ filteredPosts.length }}</strong>개의 글
           </div>
         </div>
 
@@ -31,15 +30,32 @@
         </div>
       </section>
 
+      <section class="category-filter-wrap">
+        <div class="category-filter" role="toolbar" aria-label="카테고리 필터">
+          <button
+            v-for="opt in filterOptions"
+            :key="opt.key"
+            type="button"
+            class="category-filter-btn"
+            :class="{ active: String(selectedCategory) === String(opt.id) }"
+            @click="selectCategory(opt.id)"
+            :aria-pressed="String(selectedCategory) === String(opt.id)"
+          >
+            {{ opt.label }}
+          </button>
+        </div>
+        <div v-if="categoriesError" class="caption error small">{{ categoriesError }}</div>
+      </section>
+
       <section class="card posts-list-card" aria-live="polite">
         <div v-if="loading" class="state">로딩 중...</div>
         <div v-else-if="error" class="state error">{{ error }}</div>
 
         <div v-else>
-          <div v-if="pagedItems.length === 0" class="empty-state">
+          <div v-if="filteredPosts.length === 0" class="empty-state">
             <div class="empty-emoji">💬</div>
             <div class="empty-text">
-              아직 게시글이 없습니다. 먼저 이야기를 시작해보세요.
+              해당 조건에 맞는 게시글이 없습니다.
             </div>
           </div>
 
@@ -53,6 +69,7 @@
               tabindex="0"
               @keyup.enter="openPost(p.id)">
               <div class="post-row-left">
+                <CategoryBadge :label="getCategoryLabel(p)" v-if="getCategoryLabel(p)" />
                 <div class="title">{{ p.title }}</div>
                 <div class="excerpt caption">{{ excerpt(p.content) }}</div>
               </div>
@@ -101,14 +118,16 @@
 <script>
 import { ref, onMounted, computed, watch } from "vue";
 import AppHeader from "../components/AppHeader.vue";
+import CategoryBadge from "../components/CategoryBadge.vue";
 import { listPosts } from "../api/posts.js";
-import { useRouter } from "vue-router";
+import { listCategories } from "../api/categories.js";
+import { useRouter, useRoute } from "vue-router";
 import BackButton from "../components/BackButton.vue";
 import formatDateToKorean from "../utils/formatDate.js";
 
 export default {
   name: "PostsList",
-  components: { AppHeader, BackButton },
+  components: { AppHeader, BackButton, CategoryBadge },
   setup() {
     const posts = ref([]);
     const loading = ref(false);
@@ -117,38 +136,79 @@ export default {
     const page = ref(1);
     const perPage = 7;
     const router = useRouter();
+    const route = useRoute();
 
-    async function load() {
+    // categories
+    const categories = ref([]);
+    const categoriesError = ref("");
+    const categoriesLoading = ref(false);
+    const selectedCategory = ref(""); // "" = 전체, otherwise category id
+
+    // build filter options: 전체 + backend categories
+    const filterOptions = computed(() => {
+      const opts = [{ key: "all", id: "", label: "전체" }];
+      for (const c of categories.value) {
+        opts.push({ key: `c${c.id}`, id: String(c.id), label: c.name });
+      }
+      return opts;
+    });
+
+    async function loadCategories() {
+      categoriesLoading.value = true;
+      categoriesError.value = "";
+      try {
+        const res = await listCategories();
+        categories.value = Array.isArray(res) ? res : [];
+      } catch {
+        categories.value = [];
+        categoriesError.value = "카테고리 목록을 불러오지 못했습니다.";
+      } finally {
+        categoriesLoading.value = false;
+      }
+    }
+
+    async function loadPosts() {
       loading.value = true;
       error.value = "";
       try {
-        const ps = await listPosts();
-        posts.value = Array.isArray(ps)
-          ? ps.sort((a, b) => Number(b.id) - Number(a.id))
+        // backend doesn't support server-side category filter currently; pass params for forward-compat
+        const res = await listPosts({ category_id: selectedCategory.value || undefined, keyword: query.value || undefined });
+        posts.value = Array.isArray(res)
+          ? res.sort((a, b) => Number(b.id) - Number(a.id))
           : [];
       } catch {
+        posts.value = [];
         error.value = "게시글을 불러오는 데 실패했습니다.";
       } finally {
         loading.value = false;
       }
     }
 
-    const filtered = computed(() => {
-      if (!query.value) return posts.value;
-      const q = query.value.toLowerCase();
-      return posts.value.filter(
-        (p) =>
-          (p.title || "").toLowerCase().includes(q) ||
-          (p.content || "").toLowerCase().includes(q),
-      );
+    // Derived filtered posts: apply category + keyword client-side (because backend doesn't filter)
+    const filteredPosts = computed(() => {
+      const q = query.value ? String(query.value).toLowerCase() : "";
+      return posts.value.filter((p) => {
+        // category filter
+        if (selectedCategory.value !== "" && selectedCategory.value !== null) {
+          const pid = p.category_id !== undefined && p.category_id !== null ? String(p.category_id) : "";
+          if (pid !== String(selectedCategory.value)) return false;
+        }
+        // keyword filter (title or content)
+        if (q) {
+          const hay1 = (p.title || "").toString().toLowerCase();
+          const hay2 = (p.content || "").toString().toLowerCase();
+          return hay1.includes(q) || hay2.includes(q);
+        }
+        return true;
+      });
     });
 
     const pages = computed(() =>
-      Math.max(1, Math.ceil(filtered.value.length / perPage)),
+      Math.max(1, Math.ceil(filteredPosts.value.length / perPage)),
     );
     const pagedItems = computed(() => {
       const start = (page.value - 1) * perPage;
-      return filtered.value.slice(start, start + perPage);
+      return filteredPosts.value.slice(start, start + perPage);
     });
 
     function openPost(id) {
@@ -162,6 +222,7 @@ export default {
     }
     function onSearch() {
       page.value = 1;
+      updateQueryParams();
     }
     function excerpt(text) {
       if (!text) return "";
@@ -169,12 +230,51 @@ export default {
       return t.length > 80 ? t.slice(0, 80) + "…" : t;
     }
 
+    function getCategoryLabel(p) {
+      if (!p) return null;
+      if (p.category_name) return p.category_name;
+      if (p.category && p.category.name) return p.category.name;
+      if (p.category_id !== undefined && p.category_id !== null) {
+        const f = categories.value.find((c) => Number(c.id) === Number(p.category_id));
+        return f ? f.name : null;
+      }
+      return null;
+    }
+
+    function selectCategory(id) {
+      selectedCategory.value = id === "" ? "" : String(id);
+      page.value = 1;
+      updateQueryParams();
+      // Because backend doesn't filter, we only re-filter client-side (posts already loaded)
+      // But if you want to re-fetch from server when server supports filter, use loadPosts()
+    }
+
+    function updateQueryParams() {
+      // Build new query preserving other params as necessary
+      const newQuery = { ...route.query };
+      if (query.value) newQuery.keyword = query.value;
+      else delete newQuery.keyword;
+      if (selectedCategory.value !== "" && selectedCategory.value !== null) newQuery.category_id = String(selectedCategory.value);
+      else delete newQuery.category_id;
+      router.replace({ name: route.name || "PostsList", query: newQuery }).catch(() => {});
+    }
+
+    // Initialize from route query if present
+    onMounted(async () => {
+      await loadCategories();
+      const q = route.query || {};
+      if (q.keyword) query.value = String(q.keyword);
+      if (q.category_id) selectedCategory.value = String(q.category_id);
+      await loadPosts();
+    });
+
+    // watch posts change -> ensure page bounds
     watch(page, (v) => {
       if (v < 1) page.value = 1;
       if (v > pages.value) page.value = pages.value;
     });
 
-    onMounted(load);
+    // When categories load after posts, ensure labels show
     return {
       posts,
       loading,
@@ -188,6 +288,12 @@ export default {
       formatDate,
       onSearch,
       excerpt,
+      getCategoryLabel,
+      categoriesError,
+      filterOptions,
+      selectedCategory,
+      selectCategory,
+      filteredPosts,
     };
   },
 };
@@ -222,6 +328,40 @@ export default {
   align-items: center;
 }
 
+/* category filter */
+.category-filter-wrap {
+  margin: 14px 0;
+}
+.category-filter {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  -webkit-overflow-scrolling: touch;
+}
+.category-filter::-webkit-scrollbar { height: 6px; }
+.category-filter::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.08); border-radius: 6px; }
+
+.category-filter-btn {
+  white-space: nowrap;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+.category-filter-btn:hover {
+  border-color: rgba(0,0,0,0.08);
+}
+.category-filter-btn.active {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+
 /* unified heights for search input and create button */
 .search-input {
   min-width: 260px;
@@ -254,6 +394,7 @@ export default {
 .posts-body {
   display: flex;
   flex-direction: column;
+  gap: 8px;
 }
 .post-row {
   display: flex;
@@ -273,7 +414,7 @@ export default {
 .post-row-left {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   min-width: 0;
 }
 .title {
