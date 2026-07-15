@@ -1,4 +1,3 @@
-
 <template>
   <div>
     <AppHeader />
@@ -73,18 +72,17 @@
                   <div class="body-text">{{ place.tel }}</div>
                 </div>
                 <div
-                v-if="place.eventstartdate || place.eventenddate"
-                class="caption">
-                <strong>행사 기간</strong>
-                <div class="body-text">
-                  <span v-if="place.eventstartdate">{{
-                    formatShortDate(place.eventstartdate)
-                  }}</span>
-                  <span v-if="place.eventenddate">
-                    ~ {{ formatShortDate(place.eventenddate) }}</span
-                  >
+                  v-if="place.eventstartdate || place.eventenddate"
+                  class="caption">
+                  <strong>행사 기간</strong>
+                  <div class="body-text">
+                    <span v-if="place.eventstartdate">{{ formatEventDate(place.eventstartdate) }}</span>
+                    <span v-if="place.eventenddate && place.eventstartdate && place.eventenddate !== place.eventstartdate">
+                      ~ {{ formatEventDate(place.eventenddate) }}</span>
+                    <span v-else-if="!place.eventstartdate && place.eventenddate">
+                      {{ formatEventDate(place.eventenddate) }}</span>
+                  </div>
                 </div>
-              </div>
               </div>
             </div>
           </div>
@@ -94,6 +92,134 @@
               <h3 class="h-section" style="margin: 0 0 8px">소개</h3>
               <div class="body-text" v-html="sanitizedOverview"></div>
             </div>
+          </section>
+
+          <!-- 축제공연행사 전용 상세 섹션 (전체 너비 카드) -->
+          <section
+            v-if="isFestival && hasFestivalDetails"
+            class="festival-details card"
+            aria-labelledby="festival-details-title"
+            style="margin-top: 18px"
+          >
+            <h2 id="festival-details-title" class="festival-details-title">행사 상세 정보</h2>
+
+            <dl class="festival-info-grid">
+              <div
+                v-if="showEventPlace"
+                class="festival-info-item"
+              >
+                <dt>행사 장소</dt>
+                <dd>{{ place.eventplace }}</dd>
+              </div>
+
+              <div
+                v-if="hasValue(place.playtime)"
+                class="festival-info-item"
+              >
+                <dt>공연 시간</dt>
+                <dd>{{ place.playtime }}</dd>
+              </div>
+
+              <div
+                v-if="hasValue(place.agelimit)"
+                class="festival-info-item"
+              >
+                <dt>관람 연령</dt>
+                <dd>{{ place.agelimit }}</dd>
+              </div>
+
+              <div
+                v-if="hasValue(place.festivalgrade)"
+                class="festival-info-item"
+              >
+                <dt>축제 등급</dt>
+                <dd>{{ place.festivalgrade }}</dd>
+              </div>
+
+              <div
+                v-if="hasValue(place.spendtimefestival)"
+                class="festival-info-item"
+              >
+                <dt>관람 소요 시간</dt>
+                <dd>{{ place.spendtimefestival }}</dd>
+              </div>
+
+              <div
+                v-if="hasValue(place.usetimefestival)"
+                class="festival-info-item"
+              >
+                <dt>이용 요금</dt>
+                <dd>{{ place.usetimefestival }}</dd>
+              </div>
+
+              <div
+                v-if="hasValue(place.discountinfofestival)"
+                class="festival-info-item"
+              >
+                <dt>할인 정보</dt>
+                <dd>{{ place.discountinfofestival }}</dd>
+              </div>
+
+              <div
+                v-if="hasValue(place.bookingplace)"
+                class="festival-info-item"
+              >
+                <dt>예매처</dt>
+                <dd>{{ place.bookingplace }}</dd>
+              </div>
+            </dl>
+
+            <div
+              v-if="hasValue(place.program)"
+              class="festival-section"
+            >
+              <h3>프로그램</h3>
+              <p class="festival-description">{{ place.program }}</p>
+            </div>
+
+            <div
+              v-if="hasValue(place.subevent)"
+              class="festival-section"
+            >
+              <h3>부대 행사</h3>
+              <p class="festival-description">{{ place.subevent }}</p>
+            </div>
+
+            <div
+              v-if="hasValue(place.placeinfo)"
+              class="festival-section"
+            >
+              <h3>행사장 안내</h3>
+              <p class="festival-description">{{ place.placeinfo }}</p>
+            </div>
+
+            <div
+              v-if="hasSponsorInfo"
+              class="festival-section"
+            >
+              <h3>주최·주관</h3>
+
+              <p v-if="hasValue(place.sponsor1)">
+                주최: {{ place.sponsor1 }}
+                <span v-if="showSponsor1Tel"> · {{ place.sponsor1tel }}</span>
+              </p>
+
+              <p v-if="hasValue(place.sponsor2)">
+                주관: {{ place.sponsor2 }}
+                <span v-if="showSponsor2Tel"> · {{ place.sponsor2tel }}</span>
+              </p>
+            </div>
+
+            <a
+              v-if="festivalHomepage"
+              :href="festivalHomepage"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="btn btn-primary festival-homepage"
+              style="margin-top:16px;"
+            >
+              공식 홈페이지 바로가기
+            </a>
           </section>
         </section>
 
@@ -124,8 +250,6 @@
               <PlaceKakaoMap :place="place" />
             </div>
           </div>
-
-          
         </aside>
       </div>
 
@@ -149,12 +273,115 @@ const place = ref(null);
 const loading = ref(false);
 const error = ref("");
 
+// 기존의 formatShortDate는 이벤트용 날짜 포맷으로 대체 처리
+function formatEventDate(value) {
+  const text = String(value ?? "").trim();
+  if (!/^\d{8}$/.test(text)) {
+    return text;
+  }
+  return `${text.slice(0, 4)}.${text.slice(4, 6)}.${text.slice(6, 8)}`;
+}
+
 function formatShortDate(raw) {
+  // 기존 비-축제 일반 날짜는 기존 유틸을 유지
   const v = formatDateToKorean(raw);
   return v || raw || "";
 }
 
-// minimal sanitizer: escape then convert line breaks to paragraphs
+function hasValue(value) {
+  return (
+    value !== null &&
+    value !== undefined &&
+    String(value).trim() !== ""
+  );
+}
+
+// 축제 여부 판단 (contenttypeid 또는 contentTypeId 또는 contentType)
+const isFestival = computed(() => {
+  const typeId =
+    place.value?.contenttypeid ??
+    place.value?.contentTypeId ??
+    place.value?.contenttypeId;
+
+  return (
+    String(typeId ?? "") === "15" ||
+    place.value?.contentType === "축제공연행사" ||
+    place.value?.contenttype === "축제공연행사"
+  );
+});
+
+// 축제 관련 필드 중 실제로 하나라도 값이 있으면 섹션 표시
+const festivalFieldKeys = [
+  "eventplace",
+  "playtime",
+  "program",
+  "subevent",
+  "sponsor1",
+  "sponsor1tel",
+  "sponsor2",
+  "sponsor2tel",
+  "eventhomepage",
+  "bookingplace",
+  "agelimit",
+  "festivalgrade",
+  "placeinfo",
+  "spendtimefestival",
+  "discountinfofestival",
+  "usetimefestival",
+];
+
+// hasFestivalDetails: eventstartdate / eventenddate는 상단 요약에서 처리하므로 여기선 제외해도 무방
+const hasFestivalDetails = computed(() => {
+  if (!place.value || !isFestival.value) return false;
+  return festivalFieldKeys.some((k) => hasValue(place.value?.[k]));
+});
+
+// showEventPlace: eventplace가 기존 주소와 동일하면 중복 생략
+const showEventPlace = computed(() => {
+  if (!hasValue(place.value?.eventplace)) return false;
+  const ev = String(place.value.eventplace).replace(/\s+/g, "").toLowerCase();
+  const addr1 = String(place.value?.addr1 ?? "").replace(/\s+/g, "").toLowerCase();
+  const addr2 = String(place.value?.addr2 ?? "").replace(/\s+/g, "").toLowerCase();
+  const addrCombined = (addr1 + addr2).replace(/\s+/g, "");
+  if (addr1 && (ev === addr1 || ev === addrCombined)) return false;
+  return true;
+});
+
+// sponsor / sponsor tel 표시 여부: 기존 place.tel과 중복되는 sponsor1tel은 숨김
+const hasSponsorInfo = computed(() => {
+  if (!place.value) return false;
+  return (
+    hasValue(place.value.sponsor1) ||
+    hasValue(place.value.sponsor1tel) ||
+    hasValue(place.value.sponsor2) ||
+    hasValue(place.value.sponsor2tel)
+  );
+});
+const showSponsor1Tel = computed(() => {
+  if (!hasValue(place.value?.sponsor1tel)) return false;
+  if (!hasValue(place.value?.tel)) return true;
+  return String(place.value.sponsor1tel).trim() !== String(place.value.tel).trim();
+});
+const showSponsor2Tel = computed(() => {
+  if (!hasValue(place.value?.sponsor2tel)) return false;
+  if (!hasValue(place.value?.tel)) return true;
+  return String(place.value.sponsor2tel).trim() !== String(place.value.tel).trim();
+});
+
+// festivalHomepage: 안전한 URL 추출 (http(s)로 시작할 때만)
+const festivalHomepage = computed(() => {
+  if (!hasValue(place.value?.eventhomepage)) return null;
+  let s = String(place.value.eventhomepage).trim();
+
+  // 만약 HTML 태그에 href로 들어있다면 추출
+  const m = s.match(/href=["']([^"']+)["']/i);
+  if (m && m[1]) s = m[1].trim();
+
+  if (/^https?:\/\//i.test(s)) return s;
+  return null;
+});
+
+// minimal sanitizer: escape then convert line breaks to paragraphs (기존 로직 재사용)
 function escapeHtml(unsafe) {
   if (!unsafe && unsafe !== 0) return "";
   return String(unsafe)
@@ -273,10 +500,74 @@ onMounted(load);
   
 }
 
+/* === 축제 상세 정보 스타일 === */
+.festival-details {
+  margin-top: 24px;
+  padding: 20px;
+  background: var(--card-bg, #fff);
+  border: 1px solid var(--border, #e6e6e6);
+  border-radius: 8px;
+}
+.festival-details-title {
+  margin: 0 0 14px;
+  color: var(--navy);
+  font-size: 18px;
+}
+.festival-info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 20px;
+  margin: 0;
+}
+.festival-info-item {
+  min-width: 0;
+}
+.festival-info-item dt {
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.festival-info-item dd {
+  margin: 0;
+  color: var(--navy);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
 
+.festival-section {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+.festival-section h3 {
+  margin: 0 0 8px;
+  font-size: 15px;
+}
+.festival-description {
+  margin: 0;
+  white-space: pre-line;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+  line-height: 1.7;
+}
+
+.festival-homepage {
+  display: inline-block;
+}
+
+/* responsive */
 @media (max-width: 1024px) {
   .place-detail {
     grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 768px) {
+  .festival-details {
+    padding: 16px;
+  }
+  .festival-info-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
   }
 }
 </style>
