@@ -309,17 +309,13 @@ export default {
   margin-top: 20px;
   padding-bottom: 40px;
 }
-
-/* Page head: align title left, controls right and vertically center */
 .page-head {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   gap: 16px;
   margin-bottom: 12px;
 }
-
-/* Title block */
 .page-head-left {
   display: flex;
   flex-direction: column;
@@ -330,56 +326,13 @@ export default {
   color: var(--muted);
   margin-top: 8px;
 }
-
-/* Actions wrapper: keeps search + write on one line by default */
-.page-head-right {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  min-width: 0;
-}
-
-/* posts-actions: controls container */
 .posts-actions {
   display: flex;
+  gap: 10px;
   align-items: center;
-  justify-content: flex-end;
-  gap: 12px;
-  flex-shrink: 0;
 }
 
-/* Search input */
-.search-input {
-  width: 280px;
-  max-width: 100%;
-  height: 44px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  font-size: 15px;
-  box-sizing: border-box;
-  min-width: 0;
-}
-
-/* Create / write button */
-.create-btn {
-  height: 44px;
-  padding: 0 16px;
-  border-radius: 10px;
-  background: linear-gradient(90deg, var(--primary), var(--primary-hover));
-  color: #fff;
-  border: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 600;
-  white-space: nowrap;
-  min-width: 92px;
-  box-sizing: border-box;
-}
-
-/* category filter (unchanged) */
+/* category filter */
 .category-filter-wrap {
   margin: 14px 0;
 }
@@ -390,6 +343,9 @@ export default {
   padding-bottom: 6px;
   -webkit-overflow-scrolling: touch;
 }
+.category-filter::-webkit-scrollbar { height: 6px; }
+.category-filter::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.08); border-radius: 6px; }
+
 .category-filter-btn {
   white-space: nowrap;
   padding: 8px 12px;
@@ -401,13 +357,40 @@ export default {
   cursor: pointer;
   transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
 }
+.category-filter-btn:hover {
+  border-color: rgba(0,0,0,0.08);
+}
 .category-filter-btn.active {
   background: var(--primary);
   color: #fff;
   border-color: var(--primary);
 }
 
-/* posts list card */
+/* unified heights for search input and create button */
+.search-input {
+  min-width: 260px;
+  height: 44px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 15px;
+  box-sizing: border-box;
+}
+.create-btn {
+  height: 44px;
+  padding: 0 14px;
+  border-radius: 10px;
+  background: linear-gradient(90deg, var(--primary), var(--primary-hover));
+  color: #fff;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+}
+
+/* card list */
 .posts-list-card {
   padding: 0;
   overflow: hidden;
@@ -418,7 +401,7 @@ export default {
   gap: 8px;
 }
 
-/* post row: keeps contents left-aligned */
+/* Post row / item */
 .post-row {
   display: flex;
   flex-direction: column;
@@ -435,7 +418,7 @@ export default {
   background: var(--primary-soft);
 }
 
-/* header: badge + title + date */
+/* Header: badge + title + date */
 .post-header {
   display: flex;
   align-items: center;
@@ -472,7 +455,7 @@ export default {
   white-space: nowrap;
 }
 
-/* preview: use full width and clamp to 2 lines */
+/* Preview: up to 2 lines */
 .post-preview {
   width: 100%;
   margin: 6px 0 0;
@@ -491,55 +474,102 @@ export default {
   overflow-wrap: break-word;
 }
 
-/* Responsive behavior */
+/* empty state */
+.empty-state {
+  padding: 40px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+  flex-direction: row;
+}
+.empty-emoji {
+  font-size: 26px;
+}
+.empty-text {
+  color: var(--muted);
+}
 
-/* Tablet / mobile general: stack title + actions vertically but keep actions row intact */
+/* pagination */
+.pagination {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  padding: 12px;
+}
+.page-btn {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  cursor: pointer;
+}
+.page-btn.active {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+
+/* Desktop: ensure left alignment (no centering for post contents) */
+@media (min-width: 769px) {
+  .post-row {
+    padding: 14px 18px;
+  }
+}
+
+/* responsive */
 @media (max-width: 768px) {
   .page-head {
     flex-direction: column;
     align-items: flex-start;
-    gap: 12px;
-  }
-
-  .page-head-right {
-    width: 100%;
-    display: flex;
-    justify-content: flex-start;
-  }
-
-  .posts-actions {
-    width: 100%;
-    justify-content: flex-start;
-  }
-
-  .search-input {
-    /* allow input to grow and take remaining width */
-    flex: 1 1 auto;
-    width: auto;
-    min-width: 0;
-  }
-
-  .create-btn {
-    flex: 0 0 92px;
-  }
-}
-
-/* Very narrow screens: stack controls */
-@media (max-width: 360px) {
-  .posts-actions {
-    flex-direction: column;
-    align-items: stretch;
     gap: 8px;
   }
 
-  .search-input,
+  /* Make search + button stack and fill width on mobile */
+  .posts-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    width: 100%;
+  }
+  .search-input {
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+    box-sizing: border-box;
+  }
   .create-btn {
     width: 100%;
-    flex-basis: auto;
+    box-sizing: border-box;
+    justify-content: center;
   }
 
-  .create-btn {
+  .posts-actions .search-input,
+  .posts-actions .create-btn {
+    height: 44px;
+  }
+
+  .search-input {
+    /* remove fixed desktop min-width impact */
     min-width: 0;
+  }
+
+  .post-row {
+    padding: 12px;
+  }
+
+  .post-header {
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .post-title {
+    font-size: 16px;
+  }
+
+  .post-date {
+    align-self: flex-end;
   }
 }
 </style>
