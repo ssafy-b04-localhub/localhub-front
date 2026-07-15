@@ -130,7 +130,10 @@ export default {
     async function loadContentTypes() {
       try {
         const res = await getContentTypes();
-        contentTypes.value = res.content_types || [];
+        const raw = res.content_types || [];
+        // 필터: 정확히 "음식점"인 항목만 제외 (공백 안전 처리)
+        contentTypes.value = raw.filter((c) => String(c.name ?? "").trim() !== "음식점");
+
         chipList.value = [
           { label: "전체", value: "" },
           ...contentTypes.value.map((c) => ({
@@ -138,6 +141,18 @@ export default {
             value: String(c.id),
           })),
         ];
+
+        // 이미 URL에 content_type이 음식점 ID로 들어와 있는 경우 안전하게 초기화
+        if (selectedType.value) {
+          const chipValues = chipList.value.map((x) => String(x.value));
+          if (!chipValues.includes(String(selectedType.value))) {
+            // removed (음식점 등) — 안전하게 전체로 초기화하되 keyword는 유지
+            selectedType.value = "";
+            const q = { ...route.query };
+            delete q.content_type;
+            router.replace({ query: q }).catch(() => {});
+          }
+        }
       } catch {
         contentTypes.value = [];
         chipList.value = [{ label: "전체", value: "" }];
@@ -257,18 +272,21 @@ export default {
 }
 .search-input {
   flex: 1 1 auto;
+  min-width: 0;
   height: 48px;
-  padding: 10px 12px;
-  border-radius: 12px;
+  padding: 0 12px;
+  box-sizing: border-box;
   border: 1px solid var(--border);
-  font-size: 15px;
+  border-radius: 12px;
   background: var(--surface);
+  font-size: 15px;
 }
 .search-btn {
+  flex: 0 0 auto;
   height: 48px;
   padding: 0 18px;
+  box-sizing: border-box;
   border-radius: 12px;
-  align-self: stretch;
   display: inline-flex;
   align-items: center;
   justify-content: center;

@@ -12,6 +12,7 @@
         class="post-card card post-detail-card"
         role="article">
         <header class="post-header">
+          <CategoryBadge :label="categoryLabel" v-if="categoryLabel" />
           <h1 class="post-title">{{ post.title }}</h1>
           <div class="post-meta caption">{{ formatDate(post.created_at) }}</div>
         </header>
@@ -35,13 +36,11 @@
         </footer>
       </article>
 
-      <!-- Edit modal: pass handler as prop (preferred) -->
       <PasswordModal
         :visible="showPwdModal"
         @close="onPwdModalClose"
         :on-confirm="onPwdConfirmForEdit" />
 
-      <!-- Delete modal: pass handler as prop (preferred) -->
       <PasswordModal
         :visible="showDeleteModal"
         @close="() => (showDeleteModal = false)"
@@ -55,13 +54,15 @@ import { ref, onMounted, computed } from "vue";
 import AppHeader from "../components/AppHeader.vue";
 import PasswordModal from "../components/PasswordModal.vue";
 import BackButton from "../components/BackButton.vue";
+import CategoryBadge from "../components/CategoryBadge.vue";
 import { getPost, deletePost, updatePost } from "../api/posts.js";
+import { listCategories } from "../api/categories.js";
 import { useRoute, useRouter } from "vue-router";
 import formatDateToKorean from "../utils/formatDate.js";
 
 export default {
   name: "PostDetail",
-  components: { AppHeader, PasswordModal, BackButton },
+  components: { AppHeader, PasswordModal, BackButton, CategoryBadge },
   setup() {
     const route = useRoute();
     const router = useRouter();
@@ -69,9 +70,18 @@ export default {
     const post = ref(null);
     const loading = ref(false);
     const error = ref("");
-    // modal visibility states
     const showDeleteModal = ref(false);
     const showPwdModal = ref(false);
+    const categories = ref([]);
+
+    async function loadCategories() {
+      try {
+        const res = await listCategories();
+        categories.value = Array.isArray(res) ? res : [];
+      } catch {
+        categories.value = [];
+      }
+    }
 
     async function load() {
       loading.value = true;
@@ -87,7 +97,10 @@ export default {
       }
     }
 
-    onMounted(load);
+    onMounted(async () => {
+      await loadCategories();
+      await load();
+    });
 
     function formatDate(s) {
       return formatDateToKorean(s) || "";
@@ -108,7 +121,17 @@ export default {
         .join("");
     });
 
-    // --- click handlers to open appropriate modal ---
+    const categoryLabel = computed(() => {
+      if (!post.value) return null;
+      if (post.value.category_name) return post.value.category_name;
+      if (post.value.category && post.value.category.name) return post.value.category.name;
+      if (post.value.category_id !== undefined && post.value.category_id !== null) {
+        const found = categories.value.find((c) => Number(c.id) === Number(post.value.category_id));
+        return found ? found.name : null;
+      }
+      return null;
+    });
+
     function onEditClick() {
       showPwdModal.value = true;
     }
@@ -120,14 +143,9 @@ export default {
       showPwdModal.value = false;
     }
 
-    // Parent confirm handler for EDIT: use existing PUT /posts/{id} to validate password.
-    // We send only { password } so backend checks password and performs no update when title/content absent.
-    // Parent must throw Error on failure so modal displays message and stays open.
     async function onPwdConfirmForEdit(pwd) {
       try {
-        // call update endpoint with only password to validate credentials
         await updatePost(id, { password: pwd });
-        // success -> navigate to edit (PasswordModal will auto-close after awaited success)
         router.push({ name: "PostEdit", params: { id } });
         return;
       } catch (err) {
@@ -146,11 +164,9 @@ export default {
       }
     }
 
-    // Parent confirm handler for DELETE: keep existing logic (uses deletePost which expects password as query param)
     async function onDeleteConfirm(pwd) {
       try {
         await deletePost(id, pwd);
-        // success -> navigate away (PasswordModal will auto-close after awaited success)
         router.push({ name: "PostsList" });
         return;
       } catch (err) {
@@ -182,6 +198,7 @@ export default {
       onPwdModalClose,
       formatDate,
       formattedContent,
+      categoryLabel,
     };
   },
 };
@@ -200,7 +217,7 @@ export default {
 .post-header {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 .post-title {
   margin: 0;
@@ -232,12 +249,6 @@ export default {
 }
 .btn {
   min-width: 88px;
-}
-
-/* danger outline */
-.btn-outline.danger {
-  border-color: var(--danger);
-  color: var(--danger);
 }
 
 /* responsive */
