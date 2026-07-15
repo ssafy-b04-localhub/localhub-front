@@ -56,26 +56,84 @@
             <div v-if="message.html" class="text html-content" v-html="message.html"></div>
             <div v-else class="text">{{ message.text }}</div>
 
-            <!-- sources 렌더링: v-html이 아닌 Vue로 안전하게 출력 -->
+            <!-- structured sources rendering with thumbnail and brief meta -->
             <div v-if="message.sources && message.sources.length" class="chat-sources">
               <div class="sources-title">참고자료</div>
               <ul>
-                <li v-for="(s, i) in visibleSources(message)" :key="i">
+                <li v-for="(s, i) in visibleSources(message)" :key="i" class="source-item">
                   <a
                     v-if="s.contentid"
                     :href="`/places/${encodeURIComponent(String(s.contentid))}`"
-                    class="chat-source-link"
+                    class="source-link"
                     target="_blank"
                     rel="noopener noreferrer"
                   >
-                    {{ s.title || "제목없음" }}
-                  </a>
-                  <span v-else class="source-text">{{ s.title || "제목없음" }}</span>
+                    <div class="thumb-wrap">
+                      <img
+                        v-if="s.thumb"
+                        :src="s.thumb"
+                        alt=""
+                        class="source-thumb"
+                        loading="lazy"
+                      />
+                      <div v-else class="thumb-placeholder" aria-hidden="true"></div>
+                    </div>
 
-                  <span class="source-meta" v-if="s.region"> · {{ s.region }}</span>
-                  <span class="source-meta" v-if="s.eventstartdate || s.eventenddate">
-                    · {{ formatEventDate(s.eventstartdate) }}<span v-if="s.eventenddate && s.eventenddate !== s.eventstartdate"> ~ {{ formatEventDate(s.eventenddate) }}</span>
-                  </span>
+                    <div class="source-body">
+                      <div class="source-title">{{ s.title || "제목없음" }}</div>
+
+                      <!-- 축제인 경우: 주소(첫줄) / 날짜(둘째줄) -->
+                      <div v-if="isFestivalSource(s)" class="source-meta-block">
+                        <div v-if="s.addr || s.region" class="source-line-addr">
+                          {{ s.addr || s.region }}
+                        </div>
+                        <div v-if="s.eventstartdate || s.eventenddate" class="source-line-date">
+                          {{ formatEventDate(s.eventstartdate) }}
+                          <span v-if="s.eventenddate && s.eventenddate !== s.eventstartdate"> ~ {{ formatEventDate(s.eventenddate) }}</span>
+                        </div>
+                      </div>
+
+                      <!-- 비-축제: 한 줄로 표시 (주소 또는 지역; 없으면 날짜) -->
+                      <div v-else class="source-meta-line">
+                        <span v-if="s.addr" class="source-region">{{ s.addr }}</span>
+                        <span v-else-if="s.region" class="source-region">{{ s.region }}</span>
+                        <span v-else-if="s.eventstartdate || s.eventenddate" class="source-date-inline">
+                          {{ formatEventDate(s.eventstartdate) }}
+                          <span v-if="s.eventenddate && s.eventenddate !== s.eventstartdate"> ~ {{ formatEventDate(s.eventenddate) }}</span>
+                        </span>
+                      </div>
+                    </div>
+                  </a>
+
+                  <div v-else class="source-no-link">
+                    <div class="thumb-wrap">
+                      <img v-if="s.thumb" :src="s.thumb" alt="" class="source-thumb" loading="lazy" />
+                      <div v-else class="thumb-placeholder" aria-hidden="true"></div>
+                    </div>
+
+                    <div class="source-body">
+                      <div class="source-title">{{ s.title || "제목없음" }}</div>
+
+                      <div v-if="isFestivalSource(s)" class="source-meta-block">
+                        <div v-if="s.addr || s.region" class="source-line-addr">
+                          {{ s.addr || s.region }}
+                        </div>
+                        <div v-if="s.eventstartdate || s.eventenddate" class="source-line-date">
+                          {{ formatEventDate(s.eventstartdate) }}
+                          <span v-if="s.eventenddate && s.eventenddate !== s.eventstartdate"> ~ {{ formatEventDate(s.eventenddate) }}</span>
+                        </div>
+                      </div>
+
+                      <div v-else class="source-meta-line">
+                        <span v-if="s.addr" class="source-region">{{ s.addr }}</span>
+                        <span v-else-if="s.region" class="source-region">{{ s.region }}</span>
+                        <span v-else-if="s.eventstartdate || s.eventenddate" class="source-date-inline">
+                          {{ formatEventDate(s.eventstartdate) }}
+                          <span v-if="s.eventenddate && s.eventenddate !== s.eventstartdate"> ~ {{ formatEventDate(s.eventenddate) }}</span>
+                        </span>
+                      </div>
+                    </div>
+                  </div>
                 </li>
               </ul>
 
@@ -122,6 +180,7 @@ import {
   watch,
   nextTick,
 } from "vue";
+import api from "../api/index.js";
 import { postChat } from "../api/chat.js";
 
 let idSeq = 1;
@@ -271,6 +330,15 @@ export default {
       return `${text.slice(0,4)}.${text.slice(4,6)}.${text.slice(6,8)}`;
     }
 
+    // identify festival-like source: has eventstartdate/eventenddate or contentType indications
+    function isFestivalSource(s) {
+      if (!s) return false;
+      if (s.eventstartdate || s.eventenddate) return true;
+      // sometimes backend might include contentType/contenttypeid in sources
+      const t = String(s.contenttypeid ?? s.contentTypeId ?? s.contentType ?? "").toLowerCase();
+      return t === "15" || t === "축제공연행사";
+    }
+
     // extract reply text from backend response (compat)
     function extractAnswer(response) {
       if (response == null) {
@@ -309,6 +377,44 @@ export default {
       nextTick(scrollBottom);
     }
 
+    // enrich sources by fetching place detail when contentid present and addr/thumb missing
+    async function enrichSources(sources) {
+      if (!Array.isArray(sources) || sources.length === 0) return sources;
+      const tasks = sources.map(async (s) => {
+        if (!s || !s.contentid) return s;
+        // if we already have addr and thumb and dates, skip fetching
+        const hasAddr = s.addr && String(s.addr).trim() !== "";
+        const hasThumb = s.thumb && String(s.thumb).trim() !== "";
+        const hasDate = (s.eventstartdate && String(s.eventstartdate).trim() !== "") || (s.eventenddate && String(s.eventenddate).trim() !== "");
+        if (hasAddr && hasThumb && hasDate) return s;
+
+        try {
+          const res = await api.get(`/api/places/${encodeURIComponent(String(s.contentid))}`);
+          const item = res?.data?.item;
+          if (item) {
+            // merge fields safely
+            return {
+              ...s,
+              title: s.title || item.title || s.title,
+              region: s.region || item.region || s.region,
+              addr: s.addr || item.addr1 || item.addr || s.addr,
+              thumb: s.thumb || item.firstimage2 || item.firstimage || s.thumb,
+              eventstartdate: s.eventstartdate || item.eventstartdate || null,
+              eventenddate: s.eventenddate || item.eventenddate || null,
+              contenttypeid: s.contenttypeid || item.contenttypeid || item.contentTypeId || s.contenttypeid,
+            };
+          }
+        } catch {
+          // ignore, return original
+          return s;
+        }
+        return s;
+      });
+
+      const results = await Promise.all(tasks);
+      return results;
+    }
+
     async function send() {
       const text = input.value.trim();
 
@@ -335,14 +441,23 @@ export default {
         // prepare safe HTML for reply
         const replyHtml = replyToHtml(replyText);
 
-        // ensure sources is array of objects with safe keys
-        const sources = Array.isArray(response?.sources) ? response.sources.map(s => ({
+        // normalize sources shape
+        let sources = Array.isArray(response?.sources) ? response.sources.map(s => ({
           title: s?.title ?? s?.name ?? "",
           region: s?.region ?? "",
           contentid: s?.contentid ?? s?.id ?? null,
           eventstartdate: s?.eventstartdate ?? null,
           eventenddate: s?.eventenddate ?? null,
+          thumb: s?.firstimage2 ?? s?.firstimage ?? s?.thumbnail ?? null,
+          addr: s?.addr1 ?? s?.addr ?? "",
+          contenttypeid: s?.contenttypeid ?? s?.contentTypeId ?? s?.contentType ?? null,
         })) : [];
+
+        // Enrich sources by fetching place details when needed
+        if (sources.length > 0) {
+          const enriched = await enrichSources(sources);
+          sources = enriched;
+        }
 
         // replace placeholder with formatted html and structured sources (rendered by Vue)
         replaceMessageText(placeholderId, replyText, replyHtml, sources);
@@ -405,6 +520,7 @@ export default {
       toggleSources,
       maxSources,
       formatEventDate,
+      isFestivalSource,
     };
   },
 };
@@ -546,6 +662,7 @@ export default {
   height: auto;
   box-sizing: border-box;
   flex-direction: column;
+  padding: 0;
 }
 
 .chat-msg.user .bubble {
@@ -561,7 +678,7 @@ export default {
   max-width: 85%;
 }
 
-/* 실제 메시지 텍스트 */
+/* text bubble contents */
 .bubble .text {
   display: block;
   width: auto;
@@ -605,31 +722,53 @@ export default {
 }
 .chat-sources ul {
   margin: 0;
-  padding-left: 16px;
+  padding-left: 0;
+  list-style: none;
 }
-.chat-sources li {
-  margin: 4px 0;
-  font-size: 13px;
+.source-item {
+  margin: 6px 0;
   display: flex;
-  gap: 8px;
-  align-items: baseline;
+  gap: 10px;
+  align-items: flex-start;
 }
-.chat-source-link {
-  color: var(--primary);
+.source-link, .source-no-link {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
   text-decoration: none;
-  font-weight: 600;
+  color: inherit;
+  width: 100%;
 }
-.chat-source-link:hover {
-  text-decoration: underline;
+
+/* thumb container and placeholder */
+.thumb-wrap { width:64px; height:64px; flex:0 0 64px; display:flex; align-items:center; justify-content:center; }
+.source-thumb {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 6px;
+  background: #f3f4f6;
+  flex: 0 0 64px;
 }
-.source-text {
-  color: var(--navy);
-  font-weight: 600;
+.thumb-placeholder {
+  width: 64px;
+  height: 64px;
+  border-radius: 6px;
+  background: linear-gradient(180deg, #f7fafc, #eef2f7);
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.02);
+  flex: 0 0 64px;
 }
-.source-meta {
-  color: var(--muted);
-  font-size: 12px;
-}
+
+/* body/meta */
+.source-body { flex: 1 1 auto; min-width: 0; }
+.source-title { font-weight: 600; color: var(--navy); font-size: 14px; margin-bottom: 6px; }
+.source-meta-line { font-size: 12px; color: var(--muted); }
+.source-date-inline { color: var(--muted); }
+
+/* festival: two-line meta */
+.source-meta-block { display: flex; flex-direction: column; gap: 4px; }
+.source-line-addr { font-size: 13px; color: var(--navy); }
+.source-line-date { font-size: 12px; color: var(--muted); }
 
 /* 더보기 버튼 */
 .sources-toggle {
@@ -773,5 +912,8 @@ export default {
       env(safe-area-inset-bottom, 0px) + 12px
     );
   }
+
+  .thumb-wrap { width:56px; height:56px; flex:0 0 56px; }
+  .source-thumb, .thumb-placeholder { width:56px; height:56px; flex:0 0 56px; border-radius:6px; }
 }
 </style>
