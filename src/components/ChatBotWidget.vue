@@ -22,7 +22,10 @@
       aria-label="LocalHub 챗봇"
     >
       <header class="chat-header">
-        <div class="chat-title">LocalHub 챗봇</div>
+        <div class="chat-title">
+          LocalHub 챗봇
+          <span v-if="sending" class="chat-loading-indicator"> 답변을 불러오는 중…</span>
+        </div>
 
         <button
           class="chat-close"
@@ -50,14 +53,40 @@
           :class="['chat-msg', message.role]"
         >
           <div class="bubble">
-            <div
-              v-if="message.html"
-              class="text html-content"
-              v-html="message.html"
-            ></div>
+            <div v-if="message.html" class="text html-content" v-html="message.html"></div>
+            <div v-else class="text">{{ message.text }}</div>
 
-            <div v-else class="text">
-              {{ message.text }}
+            <!-- sources 렌더링: v-html이 아닌 Vue로 안전하게 출력 -->
+            <div v-if="message.sources && message.sources.length" class="chat-sources">
+              <div class="sources-title">참고자료</div>
+              <ul>
+                <li v-for="(s, i) in visibleSources(message)" :key="i">
+                  <a
+                    v-if="s.contentid"
+                    :href="`/places/${encodeURIComponent(String(s.contentid))}`"
+                    class="chat-source-link"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {{ s.title || "제목없음" }}
+                  </a>
+                  <span v-else class="source-text">{{ s.title || "제목없음" }}</span>
+
+                  <span class="source-meta" v-if="s.region"> · {{ s.region }}</span>
+                  <span class="source-meta" v-if="s.eventstartdate || s.eventenddate">
+                    · {{ formatEventDate(s.eventstartdate) }}<span v-if="s.eventenddate && s.eventenddate !== s.eventstartdate"> ~ {{ formatEventDate(s.eventenddate) }}</span>
+                  </span>
+                </li>
+              </ul>
+
+              <button
+                v-if="message.sources.length > maxSources"
+                class="sources-toggle"
+                type="button"
+                @click="toggleSources(message)"
+              >
+                {{ message.showAllSources ? '접기' : `더보기 (${message.sources.length})` }}
+              </button>
             </div>
           </div>
         </div>
@@ -96,6 +125,7 @@ import {
 import { postChat } from "../api/chat.js";
 
 let idSeq = 1;
+const MAX_SOURCES_DEFAULT = 5;
 
 export default {
   name: "ChatBotWidget",
@@ -113,6 +143,8 @@ export default {
         : null;
 
     const isMobile = ref(mq ? mq.matches : false);
+
+    const maxSources = MAX_SOURCES_DEFAULT;
 
     function mqHandler(event) {
       isMobile.value = event.matches;
@@ -150,15 +182,35 @@ export default {
       }
     }
 
-    function pushMessage(role, text, html = null) {
-      messages.push({
+    function pushMessage(role, text, html = null, sources = null) {
+      const msg = {
         id: idSeq++,
         role,
         text,
         html,
         time: Date.now(),
-      });
+        sources: Array.isArray(sources) ? sources : [],
+        showAllSources: false,
+      };
+      messages.push(msg);
+      nextTick(scrollBottom);
+      return msg.id;
+    }
 
+    function replaceMessageText(id, text, html = null, sources = null) {
+      const idx = messages.findIndex((m) => m.id === id);
+      if (idx === -1) {
+        // fallback: push new
+        pushMessage("bot", text, html, sources);
+        return;
+      }
+      // directly mutate reactive array element
+      messages[idx].text = text;
+      messages[idx].html = html;
+      messages[idx].time = Date.now();
+      messages[idx].sources = Array.isArray(sources) ? sources : messages[idx].sources || [];
+      // ensure showAllSources default false after replace
+      if (!messages[idx].hasOwnProperty("showAllSources")) messages[idx].showAllSources = false;
       nextTick(scrollBottom);
     }
 
@@ -170,6 +222,56 @@ export default {
       bodyEl.value.scrollTop = bodyEl.value.scrollHeight;
     }
 
+    // Escape HTML to prevent XSS
+    function escapeHtml(unsafe) {
+      if (!unsafe && unsafe !== 0) return "";
+      return String(unsafe)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    // reply 텍스트 -> 안전한 HTML (단락, 줄바꿈, 목록 변환)
+    function replyToHtml(replyText) {
+      if (!replyText && replyText !== 0) return "";
+      let s = String(replyText);
+
+      // normalize newline
+      s = s.replace(/\r\n/g, "\n");
+
+      // If string contains " / " separators and it looks like a short list, convert to <ul>
+      if (s.includes(" / ")) {
+        const parts = s.split(/\s*\/\s*/).map(p => p.trim()).filter(Boolean);
+        // only convert to list when items are reasonably short (avoid converting long paragraphs)
+        const shortEnough = parts.length > 1 && parts.every(p => p.length < 300);
+        if (shortEnough) {
+          const lis = parts.map(p => `<li>${escapeHtml(p).replace(/\n/g, "<br>")}</li>`).join("");
+          return `<ul>${lis}</ul>`;
+        }
+      }
+
+      // convert multiple blank lines to paragraph breaks
+      const paragraphs = s.split(/\n{2,}/).map(p => p.trim()).filter(Boolean);
+      const htmlParagraphs = paragraphs.map(p => {
+        // single newlines -> <br>
+        const withBr = escapeHtml(p).replace(/\n/g, "<br>");
+        return `<p>${withBr}</p>`;
+      }).join("");
+      return htmlParagraphs || "";
+    }
+
+    // format event date string YYYYMMDD -> YYYY.MM.DD (if invalid, return original)
+    function formatEventDate(value) {
+      const text = String(value ?? "").trim();
+      if (!/^\d{8}$/.test(text)) {
+        return text;
+      }
+      return `${text.slice(0,4)}.${text.slice(4,6)}.${text.slice(6,8)}`;
+    }
+
+    // extract reply text from backend response (compat)
     function extractAnswer(response) {
       if (response == null) {
         return "";
@@ -178,34 +280,33 @@ export default {
       if (typeof response === "string") {
         try {
           const parsed = JSON.parse(response);
-
           if (parsed == null) {
             return response;
           }
-
-          return (
-            parsed.answer ??
-            parsed.reply ??
-            parsed.message ??
-            parsed.choices?.[0]?.text ??
-            response
-          );
+          return parsed.reply ?? parsed.answer ?? parsed.message ?? response;
         } catch {
           return response;
         }
       }
 
       if (typeof response === "object") {
-        return (
-          response.answer ??
-          response.reply ??
-          response.message ??
-          response.choices?.[0]?.text ??
-          String(response)
-        );
+        return response.reply ?? response.answer ?? response.message ?? String(response);
       }
 
       return String(response);
+    }
+
+    // visibleSources(message): returns list truncated by maxSources unless showAllSources true
+    function visibleSources(message) {
+      if (!message || !Array.isArray(message.sources)) return [];
+      if (message.showAllSources) return message.sources;
+      return message.sources.slice(0, maxSources);
+    }
+
+    function toggleSources(message) {
+      if (!message) return;
+      message.showAllSources = !message.showAllSources;
+      nextTick(scrollBottom);
     }
 
     async function send() {
@@ -215,23 +316,48 @@ export default {
         return;
       }
 
+      // push user message
       pushMessage("user", text);
       input.value = "";
+
+      // push placeholder bot message and keep its id so we can replace later
+      const placeholderId = pushMessage("bot", "답변을 불러오는 중...", null, []);
+
       sending.value = true;
 
       try {
-        const response = await postChat({
-          message: text,
-        });
+        // backend expects { message: string }
+        const response = await postChat({ message: text });
 
-        const answer = extractAnswer(response);
+        // response may be { reply: "...", sources: [...] } or other forms
+        const replyText = extractAnswer(response) || "응답이 없습니다.";
 
-        pushMessage("bot", answer);
-      } catch {
-        pushMessage(
-          "bot",
-          "현재 챗봇 서비스를 연결할 수 없습니다.",
-        );
+        // prepare safe HTML for reply
+        const replyHtml = replyToHtml(replyText);
+
+        // ensure sources is array of objects with safe keys
+        const sources = Array.isArray(response?.sources) ? response.sources.map(s => ({
+          title: s?.title ?? s?.name ?? "",
+          region: s?.region ?? "",
+          contentid: s?.contentid ?? s?.id ?? null,
+          eventstartdate: s?.eventstartdate ?? null,
+          eventenddate: s?.eventenddate ?? null,
+        })) : [];
+
+        // replace placeholder with formatted html and structured sources (rendered by Vue)
+        replaceMessageText(placeholderId, replyText, replyHtml, sources);
+      } catch (err) {
+        let msg = "현재 챗봇 서비스를 연결할 수 없습니다.";
+        try {
+          if (err && err.response && err.response.data && err.response.data.detail) {
+            msg = `오류: ${err.response.data.detail}`;
+          } else if (err && err.message) {
+            msg = `오류: ${err.message}`;
+          }
+        } catch {
+          // ignore parsing errors
+        }
+        replaceMessageText(placeholderId, msg, `<p>${escapeHtml(msg)}</p>`, []);
       } finally {
         sending.value = false;
       }
@@ -274,6 +400,11 @@ export default {
       toggle,
       send,
       onEnter,
+      replaceMessageText,
+      visibleSources,
+      toggleSources,
+      maxSources,
+      formatEventDate,
     };
   },
 };
@@ -359,14 +490,15 @@ export default {
 .chat-title {
   color: var(--navy);
   font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
-.chat-close {
-  padding: 0;
-  border: 0;
-  background: transparent;
-  font-size: 18px;
-  cursor: pointer;
+.chat-loading-indicator {
+  color: var(--muted);
+  font-weight: 500;
+  font-size: 13px;
 }
 
 /* 대화 영역 */
@@ -413,6 +545,7 @@ export default {
   max-width: 78%;
   height: auto;
   box-sizing: border-box;
+  flex-direction: column;
 }
 
 .chat-msg.user .bubble {
@@ -458,6 +591,55 @@ export default {
     var(--primary-hover)
   );
   color: #fff;
+}
+
+/* sources (참고자료) */
+.chat-sources {
+  margin-top: 10px;
+  padding-top: 8px;
+}
+.chat-sources .sources-title {
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.chat-sources ul {
+  margin: 0;
+  padding-left: 16px;
+}
+.chat-sources li {
+  margin: 4px 0;
+  font-size: 13px;
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+.chat-source-link {
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: 600;
+}
+.chat-source-link:hover {
+  text-decoration: underline;
+}
+.source-text {
+  color: var(--navy);
+  font-weight: 600;
+}
+.source-meta {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* 더보기 버튼 */
+.sources-toggle {
+  margin-top: 8px;
+  background: transparent;
+  border: none;
+  color: var(--primary);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 6px 0;
 }
 
 /*
