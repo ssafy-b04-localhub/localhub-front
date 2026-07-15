@@ -1,3 +1,4 @@
+
 <template>
   <div>
     <AppHeader />
@@ -58,7 +59,7 @@
                   display: flex;
                   flex-direction: column;
                   gap: 8px;
-                  align-items: flex-end;
+                  align-items: flex-start;
                 ">
                 <a
                   v-if="place.homepage || place.eventhomepage"
@@ -67,9 +68,23 @@
                   class="btn btn-outline"
                   >홈페이지 방문</a
                 >
-                <div v-if="place.tel" class="caption">
-                  문의: {{ place.tel }}
+                <div v-if="place.tel" class="caption" style="margin-bottom: 8px">
+                  <strong>문의</strong>
+                  <div class="body-text">{{ place.tel }}</div>
                 </div>
+                <div
+                v-if="place.eventstartdate || place.eventenddate"
+                class="caption">
+                <strong>행사 기간</strong>
+                <div class="body-text">
+                  <span v-if="place.eventstartdate">{{
+                    formatShortDate(place.eventstartdate)
+                  }}</span>
+                  <span v-if="place.eventenddate">
+                    ~ {{ formatShortDate(place.eventenddate) }}</span
+                  >
+                </div>
+              </div>
               </div>
             </div>
           </div>
@@ -106,40 +121,11 @@
                   }}<span v-if="place.addr2">, {{ place.addr2 }}</span>
                 </div>
               </div>
-              <div v-if="place.tel" class="caption" style="margin-bottom: 8px">
-                <strong>전화번호</strong>
-                <div class="body-text">{{ place.tel }}</div>
-              </div>
-              <div
-                v-if="place.eventstartdate || place.eventenddate"
-                class="caption">
-                <strong>행사 기간</strong>
-                <div class="body-text">
-                  <span v-if="place.eventstartdate">{{
-                    formatShortDate(place.eventstartdate)
-                  }}</span>
-                  <span v-if="place.eventenddate">
-                    ~ {{ formatShortDate(place.eventenddate) }}</span
-                  >
-                </div>
-              </div>
+              <PlaceKakaoMap :place="place" />
             </div>
           </div>
 
-          <div v-if="infoCards.length" class="card" style="margin-top: 12px">
-            <div
-              style="font-weight: 600; color: var(--navy); margin-bottom: 8px">
-              방문 정보
-            </div>
-            <div style="display: grid; grid-template-columns: 1fr; gap: 10px">
-              <div v-for="ic in infoCards" :key="ic.title" class="info-card">
-                <div style="font-weight: 600; margin-bottom: 6px">
-                  {{ ic.title }}
-                </div>
-                <div class="body-text">{{ ic.value }}</div>
-              </div>
-            </div>
-          </div>
+          
         </aside>
       </div>
 
@@ -155,6 +141,7 @@ import AppHeader from "../components/AppHeader.vue";
 import BackButton from "../components/BackButton.vue";
 import { getPlace } from "../api/content.js";
 import formatDateToKorean from "../utils/formatDate.js";
+import PlaceKakaoMap from "../components/PlaceKakaoMap.vue";
 
 const route = useRoute();
 const id = route.params.id;
@@ -266,6 +253,27 @@ onMounted(load);
   object-fit: cover;
   display: block;
 }
+
+.place-core {
+  /* aside 전체를 고정 높이로 맞춤 */
+  height: 422px;
+  box-sizing: border-box;
+}
+/* 카드가 내부에서 스크롤되도록 처리 (내용이 넘치면 카드 안에서 스크롤) */
+.place-core .card {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow: hidden;
+  box-sizing: border-box;
+  padding-bottom: 12px;
+}
+.place-core .card .caption{
+  
+}
+
+
 @media (max-width: 1024px) {
   .place-detail {
     grid-template-columns: 1fr;
