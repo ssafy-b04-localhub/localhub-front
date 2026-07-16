@@ -323,6 +323,14 @@ export default {
   padding: 0 16px;
 }
 
+/* Posts 페이지 전용: 하단 여백을 넉넉히 확보
+   - 크고 작은 화면에서 모두 적용
+   - env(safe-area-inset-bottom)를 포함해 모바일 홈 인디케이터 안전영역을 고려
+*/
+.posts-page {
+  padding-bottom: calc(80px + env(safe-area-inset-bottom));
+}
+
 /* 제목/설명/카운트 블록 */
 .page-head {
   display: flex;
@@ -582,6 +590,11 @@ export default {
     font-size: 12px;
     gap: 4px;
     margin-left: 4px;
+  }
+
+  /* 모바일 전용: 더 넉넉한 하단 여백 (플로팅 버튼/홈 인디케이터 여유 포함) */
+  .posts-page {
+    padding-bottom: calc(140px + env(safe-area-inset-bottom));
   }
 }
 </style>
