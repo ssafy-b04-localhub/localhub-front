@@ -115,7 +115,18 @@
                   />
 
                   <div class="recent-post-title">
-                    {{ p.title }}
+                    <span class="title-text">{{ p.title }}</span>
+
+                    <!-- 댓글 개수 표시: backend는 주로 `comment_count`를 보냅니다.
+                         null/undefined이면 0으로 표시합니다. -->
+                    <span
+                      class="comment-count"
+                      :aria-label="`댓글 ${getCommentCount(p)}개`"
+                      aria-hidden="false"
+                    >
+                      <span class="comment-icon" aria-hidden="true">💬</span>
+                      <span class="comment-num">{{ getCommentCount(p) }}</span>
+                    </span>
                   </div>
                 </div>
 
@@ -276,6 +287,14 @@ export default {
 
     function onTouchStart() {}
 
+    // 댓글 개수 취득: backend는 `comment_count`로 제공하지만 다른 네이밍도 커버.
+    function getCommentCount(p) {
+      if (!p) return 0;
+      const raw = p.comment_count ?? p.comments_count ?? p.commentsCount ?? p.commentCount ?? 0;
+      const n = Number(raw);
+      return Number.isFinite(n) ? n : 0;
+    }
+
     onMounted(load);
 
     return {
@@ -291,6 +310,7 @@ export default {
       formatDate,
       onWheel,
       onTouchStart,
+      getCommentCount,
     };
   },
 };
@@ -465,13 +485,43 @@ export default {
   min-width: 0;
 }
 
+/* recent title changed to a flex container to host title + comment badge */
 .recent-post-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: calc(100% - 80px);
+}
+
+/* title text truncation */
+.recent-post-title .title-text {
+  display: inline-block;
   min-width: 0;
   overflow: hidden;
   color: var(--navy);
   font-weight: 600;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* 댓글 개수 배지 */
+.comment-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 13px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.comment-count .comment-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+.comment-count .comment-num {
+  font-weight: 600;
+  color: var(--muted);
 }
 
 .meta {
@@ -549,14 +599,13 @@ export default {
     flex: none;
   }
 
-  /* Ensure the text itself never wraps into two lines on mobile */
   .hero-actions .cta-text {
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
-  /* Keep post rows readable on small screens */
+  /* Recent posts responsive adjustments */
   .post-row {
     align-items: flex-start;
     flex-direction: column;
@@ -568,12 +617,25 @@ export default {
     width: 100%;
   }
 
+  .recent-post-title {
+    width: 100%;
+    gap: 6px;
+  }
+
+  .recent-post-title .title-text {
+    font-size: 15px;
+  }
+
+  .comment-count {
+    font-size: 12px;
+    gap: 4px;
+  }
+
   .meta {
     align-self: flex-end;
     margin-left: 0;
   }
 
-  /* Prevent horizontal scroll root causes: ensure box-sizing consistent */
   *, *::before, *::after {
     box-sizing: border-box;
   }

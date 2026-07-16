@@ -77,6 +77,17 @@
                     :label="getCategoryLabel(p)"
                   />
                   <h3 class="post-title">{{ p.title }}</h3>
+
+                  <!-- 댓글 개수 표시: backend는 `comment_count`를 반환합니다.
+                       존재하지 않거나 null/undefined이면 0으로 표시합니다. -->
+                  <span
+                    class="comment-count"
+                    :aria-label="`댓글 ${getCommentCount(p)}개`"
+                    aria-hidden="false"
+                  >
+                    <span class="comment-icon" aria-hidden="true">💬</span>
+                    <span class="comment-num">{{ getCommentCount(p) }}</span>
+                  </span>
                 </div>
 
                 <time class="post-date">{{ formatDate(p.created_at) }}</time>
@@ -242,6 +253,15 @@ export default {
       return null;
     }
 
+    // 댓글 개수 취득: backend 응답은 `comment_count`로 제공됩니다.
+    // 다른 네이밍(예: commentCount, comments_count 등)이 올 수 있으므로 모두 커버.
+    function getCommentCount(p) {
+      if (!p) return 0;
+      const raw = p.comment_count ?? p.comments_count ?? p.commentsCount ?? p.commentCount ?? 0;
+      const n = Number(raw);
+      return Number.isFinite(n) ? n : 0;
+    }
+
     function selectCategory(id) {
       selectedCategory.value = id === "" ? "" : String(id);
       page.value = 1;
@@ -289,6 +309,7 @@ export default {
       selectedCategory,
       selectCategory,
       filteredPosts,
+      getCommentCount,
     };
   },
 };
@@ -445,6 +466,28 @@ export default {
   white-space: nowrap;
   text-align: left; /* 제목 왼쪽 정렬 */
 }
+
+/* 댓글 개수 배지: 제목 옆에 자연스럽게 위치, 줄넘김 없이 유지 */
+.comment-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 6px;
+  color: var(--muted);
+  font-size: 13px;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.comment-count .comment-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+.comment-count .comment-num {
+  font-weight: 600;
+  color: var(--muted);
+}
+
+/* 날짜는 우측 고정 */
 .post-date {
   flex-shrink: 0;
   color: var(--muted);
@@ -532,6 +575,13 @@ export default {
 
   .post-date {
     align-self: flex-end;
+  }
+
+  /* 모바일에서 댓글 배지가 너무 크지 않도록 축소 */
+  .comment-count {
+    font-size: 12px;
+    gap: 4px;
+    margin-left: 4px;
   }
 }
 </style>
