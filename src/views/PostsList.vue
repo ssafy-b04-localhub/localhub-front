@@ -397,7 +397,6 @@ export default {
 .posts-body {
   display: flex;
   flex-direction: column;
-  gap: 8px;
 }
 
 /* ensure left alignment for titles, previews and meta */
