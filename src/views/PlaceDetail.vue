@@ -259,7 +259,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from "vue";
+import { ref, onMounted, computed, watch } from "vue";
 import { useRoute } from "vue-router";
 import AppHeader from "../components/AppHeader.vue";
 import BackButton from "../components/BackButton.vue";
@@ -268,7 +268,10 @@ import formatDateToKorean from "../utils/formatDate.js";
 import PlaceKakaoMap from "../components/PlaceKakaoMap.vue";
 
 const route = useRoute();
-const id = route.params.id;
+
+// Make id reactive so component reacts when route param changes
+const id = computed(() => route.params.id);
+
 const place = ref(null);
 const loading = ref(false);
 const error = ref("");
@@ -283,7 +286,6 @@ function formatEventDate(value) {
 }
 
 function formatShortDate(raw) {
-  // 기존 비-축제 일반 날짜는 기존 유틸을 유지
   const v = formatDateToKorean(raw);
   return v || raw || "";
 }
@@ -330,13 +332,11 @@ const festivalFieldKeys = [
   "usetimefestival",
 ];
 
-// hasFestivalDetails: eventstartdate / eventenddate는 상단 요약에서 처리하므로 여기선 제외해도 무방
 const hasFestivalDetails = computed(() => {
   if (!place.value || !isFestival.value) return false;
   return festivalFieldKeys.some((k) => hasValue(place.value?.[k]));
 });
 
-// showEventPlace: eventplace가 기존 주소와 동일하면 중복 생략
 const showEventPlace = computed(() => {
   if (!hasValue(place.value?.eventplace)) return false;
   const ev = String(place.value.eventplace).replace(/\s+/g, "").toLowerCase();
@@ -347,7 +347,6 @@ const showEventPlace = computed(() => {
   return true;
 });
 
-// sponsor / sponsor tel 표시 여부: 기존 place.tel과 중복되는 sponsor1tel은 숨김
 const hasSponsorInfo = computed(() => {
   if (!place.value) return false;
   return (
@@ -368,20 +367,15 @@ const showSponsor2Tel = computed(() => {
   return String(place.value.sponsor2tel).trim() !== String(place.value.tel).trim();
 });
 
-// festivalHomepage: 안전한 URL 추출 (http(s)로 시작할 때만)
 const festivalHomepage = computed(() => {
   if (!hasValue(place.value?.eventhomepage)) return null;
   let s = String(place.value.eventhomepage).trim();
-
-  // 만약 HTML 태그에 href로 들어있다면 추출
   const m = s.match(/href=["']([^"']+)["']/i);
   if (m && m[1]) s = m[1].trim();
-
   if (/^https?:\/\//i.test(s)) return s;
   return null;
 });
 
-// minimal sanitizer: escape then convert line breaks to paragraphs (기존 로직 재사용)
 function escapeHtml(unsafe) {
   if (!unsafe && unsafe !== 0) return "";
   return String(unsafe)
@@ -400,7 +394,6 @@ function safeParagraphs(text) {
     .join("");
 }
 
-// compute overview from known fields
 const hasOverview = computed(() => {
   return !!(
     place.value &&
@@ -451,11 +444,21 @@ function emojiFor(name) {
 }
 
 async function load() {
+  const idVal = id.value;
+  if (!idVal) {
+    place.value = null;
+    error.value = "잘못된 장소 요청입니다.";
+    return;
+  }
+
   loading.value = true;
   error.value = "";
   try {
-    const res = await getPlace(id);
+    const res = await getPlace(idVal);
     place.value = res.item || null;
+    if (!place.value) {
+      error.value = "장소를 찾을 수 없습니다.";
+    }
   } catch (e) {
     error.value = "장소 정보를 불러오지 못했습니다.";
     place.value = null;
@@ -464,7 +467,13 @@ async function load() {
   }
 }
 
+// Load on mount and reload whenever route param `id` changes
 onMounted(load);
+watch(id, (newId, oldId) => {
+  if (newId && newId !== oldId) {
+    load();
+  }
+});
 </script>
 
 <style scoped>
@@ -482,11 +491,9 @@ onMounted(load);
 }
 
 .place-core {
-  /* aside 전체를 고정 높이로 맞춤 */
   height: 422px;
   box-sizing: border-box;
 }
-/* 카드가 내부에서 스크롤되도록 처리 (내용이 넘치면 카드 안에서 스크롤) */
 .place-core .card {
   height: 100%;
   display: flex;
@@ -496,11 +503,8 @@ onMounted(load);
   box-sizing: border-box;
   padding-bottom: 12px;
 }
-.place-core .card .caption{
-  
-}
 
-/* === 축제 상세 정보 스타일 === */
+/* festival styles */
 .festival-details {
   margin-top: 24px;
   padding: 20px;
@@ -555,7 +559,6 @@ onMounted(load);
   display: inline-block;
 }
 
-/* responsive */
 @media (max-width: 1024px) {
   .place-detail {
     grid-template-columns: 1fr;
